@@ -4,7 +4,7 @@ using System.Text;
 
 using System.Diagnostics;
 
-namespace Crunch.Engine
+namespace Crunch
 {
     public class MathTest
     {
@@ -37,9 +37,8 @@ namespace Crunch.Engine
             Operand given = Parse(answer);
             Operand key = answers[questionNumber];
 
-            return (given == null && key == null) || given.Equals(key);
+            return (given == null && key == null) || (given != null && key != null && given.Equals(key));
         }
-
     }
 
     public static class Testing
@@ -54,7 +53,7 @@ namespace Crunch.Engine
         {
             bool RUN_ALL_TESTS = false;
             //RUN_ALL_TESTS = true;
-
+            
             BlackBoxTests(RUN_ALL_TESTS);
             WhiteBoxTests(RUN_ALL_TESTS);
 
@@ -114,10 +113,6 @@ namespace Crunch.Engine
             bool cancel = false;
             bool advanced = false;
             bool parentheses = false;
-
-            //Debug = true;
-            //print.log("\n\n\n\n" + Math.Evaluate("64^(1/3)").value.Equals(Math.Evaluate("4").value) + "\n\n\n\n");
-            //throw new Exception();
 
             //factor = true;
             //mixed = true;
@@ -237,13 +232,13 @@ namespace Crunch.Engine
 
             if (bigNumbers || RUN_ALL_TESTS)
             {
-                testcases.Add("12^12", "8.916*10^12");
+                testcases.Add("12^12", "8916100448256");
                 testcases.Add("(12^12)^2", "7.95*10^25");
                 testcases.Add("12^12*38289", "3.414*10^17");
                 testcases.Add("4^2^2^2^2+3/5", "4^65536+3/5");
                 testcases.Add("333333333333333333", "3.333*10^17");
                 testcases.Add("2000000000000000/30000000000000000", "1/15");
-                testcases.Add("2/3000000000000000", "6.666*10^-16");
+                testcases.Add("2/3000000000000000", "6.667*10^-16");
                 testcases.Add("2/15000000000000000", "1.333*10^-16");
                 testcases.Add("2/15*10^24", "1.333*10^23");
                 testcases.Add("7^24", "1.916*10^20");
@@ -262,11 +257,11 @@ namespace Crunch.Engine
                 testcases.Add("(7^24)/(10^19)", "19.158");
                 testcases.Add("(10^19)/(7^24)", "0.0522");
                 testcases.Add("1.91581231380566/32838582938", "5.834*10^-11");
-                testcases.Add("(7^24)*1/32838582938", "5.834*10^9");
+                testcases.Add("(7^24)*1/32838582938", "5834028579.804");
                 testcases.Add("(7^-24)*32838582938", "1.714*10^-10");
-                testcases.Add("5*10^24*10^-19", "50000");
+                testcases.Add("5*10^24*10^-19", "500000");
                 testcases.Add("(4*10^16)^(1/2)", "2*10^8");
-                testcases.Add("5*7^24", "9.58*10^20");
+                testcases.Add("5*7^24", "9.579*10^20");
                 testcases.Add("5x*10^24", "5x*10^24");
                 testcases.Add("5*10^15*10^24", "5*10^39");
                 testcases.Add("7^23*10^24*5", "1.368*10^44");
@@ -287,20 +282,20 @@ namespace Crunch.Engine
                 testcases.Add("sin^2(30)", "0.25");
                 /*testcases.Add("sin^-1(0.5)", "30");
                 testcases.Add("sin^(6-7)(0.5)", "30");
-                testcases.Add("sin(sin^-1(0.5))", "0.5");
+                testcases.Add("sin(sin^-1(0.5))", "0.5");*/
                 testcases.Add("2sinx+4sinx", "6sinx");
                 testcases.Add("2sinx+4siny", "2sinx+4siny");
-                testcases.Add("2sinx+4sin^-1x", "2sinx+4sin^-1x");
-                testcases.Add("2sin^-1x+4sin^-1x", "6sin^-1x");*/
-                testcases.Add("sin5/4", "0.0218");
+                //testcases.Add("2sinx+4sin^-1x", "2sinx+4sin^-1x");
+                //testcases.Add("2sin^-1x+4sin^-1x", "6sin^-1x");
+                //testcases.Add("sin5/4", "0.02181");
                 testcases.Add("si(30)", "30si");
                 testcases.Add("s(30)", "30s");
                 testcases.Add("in(30)", "30in");
                 testcases.Add("sin(30)+cos(30)", "1.366");
-                testcases.Add("sin(cos(60))", "0.00873");
-                testcases.Add("sin(cos60+3)", "0.061");
+                testcases.Add("sin(cos(60))", "0.008727");
+                testcases.Add("sin(cos60+3)", "0.06105");
                 testcases.Add("cossin30", "1");
-                testcases.Add("sincos30", "0.0151");
+                testcases.Add("sincos30", "0.01511");
                 testcases.Add("6sin30", "3");
                 testcases.Add("5/4sin30", "5/8");
                 testcases.Add("sin30cos30", "3^(1/2)/4");
@@ -351,7 +346,7 @@ namespace Crunch.Engine
                 testcases.Add("eπ+2", "10.540");
                 testcases.Add("5.3e", "14.407");
                 testcases.Add("5/4e^(5.2/4)", "4.587");
-                testcases.Add("5xe^2+4x^3e", "10.873x^3+36.945x");
+                testcases.Add("5xe^2+4x^3e", "xe(5e+4x^2)");// "10.873x^3+36.945x");
                 testcases.Add("5x^3e^2+4x^3e", "47.818x^3");
             }
 
@@ -505,9 +500,9 @@ namespace Crunch.Engine
                 testcases.Add("(e+π)/(π+e)", "1");
                 testcases.Add("(x+y)/(y+x)", "1");
                 testcases.Add("((5*4^(x+1))/4^x)", "20");
-                testcases.Add("(5^(x+y))/(5^x+6*5^(x+y))", "(5^y)/(1+6*5^y)");
+                /*testcases.Add("(5^(x+y))/(5^x+6*5^(x+y))", "(5^y)/(1+6*5^y)");
                 testcases.Add("(5^(x+1))/(5^x+9*5^(x+1))", "5/46");
-                testcases.Add("(x^(3+x))/(x^(2+x)+6x^4)", "(x^(x+1))/(x^x+6x^2");
+                testcases.Add("(x^(3+x))/(x^(2+x)+6x^4)", "(x^(x+1))/(x^x+6x^2");*/
             }
 
             //print.log(";lakjsdflk;jasld;kfj;alskdfj", ((string)new Text()) == null);

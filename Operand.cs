@@ -3,9 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Crunch.Engine
+namespace Crunch
 {
-    public class RestrictedHashSet<T>
+    /*public class RestrictedHashSet<T>
     {
         private HashSet<T> hashset;
 
@@ -25,97 +25,164 @@ namespace Crunch.Engine
         internal bool Add(T item) => hashset.Add(item);
         internal bool Remove(T item) => hashset.Remove(item);
         internal void Clear() => hashset.Clear();
+    }*/
+
+    public class Form : IEnumerable
+    {
+        public Polynomials PolynomialForm;
+        public Numbers NumberForm;
+        public Trigonometry TrigonometryForm;
+
+        public Form(Polynomials polynomialForm, Numbers numberForm, Trigonometry trigonometryForm)
+        {
+            PolynomialForm = polynomialForm;
+            NumberForm = numberForm;
+            TrigonometryForm = trigonometryForm;
+        }
+
+        public IEnumerator GetEnumerator()
+        {
+            yield return PolynomialForm;
+            yield return NumberForm;
+        }
     }
 
     public enum Polynomials { Factored, Expanded }
     public enum Numbers { Exact, Decimal }
     public enum Trigonometry { Degrees, Radians }
 
-    public sealed class Operand
+    public enum Triple { Unchecked, Yes, No }
+
+    internal abstract class Simplifier<T1, T2> : Simplifier<T1>
     {
-        public class Form : IEnumerable
+        Simplifier<T2> t2;
+
+        public Simplifier(Simplifier<T1> t1, Simplifier<T2> t2) : base(t1)
         {
-            public Polynomials PolynomialForm;
-            public Numbers NumberForm;
-            public Trigonometry TrigonometryForm;
+            this.t2 = t2;
+        }
+    }
 
-            public Form(Polynomials polynomialForm, Numbers numberForm, Trigonometry trigonometryForm)
+    internal abstract class Simplifier<T1>
+    {
+        Simplifier<T1> t1;
+
+        public Simplifier(Simplifier<T1> t1)
+        {
+            this.t1 = t1;
+        }
+    }
+
+    internal interface ISimplifier<T>
+    {
+        Operand Simplify(T t);
+    }
+
+    public sealed class Operand : IComparable<Operand>
+    {
+        private Simplifier os;
+
+        public Operand Simplify(Polynomials p, Numbers n, Trigonometry t, Dictionary<char, Operand> dict)
+        {
+            os = new Simplifier(p, n, t, dict);
+
+            print.log("formatting");
+            Operand ans = os.Simplify(this);
+
+            if (os.CanFactor)
             {
-                PolynomialForm = polynomialForm;
-                NumberForm = numberForm;
-                TrigonometryForm = trigonometryForm;
+                PossibleForms[Polynomials.Factored] = true;
+            }
+            if (os.CanExpand)
+            {
+                PossibleForms[Polynomials.Expanded] = true;
             }
 
-            public IEnumerator GetEnumerator()
+            if (os.ts.HasExactForm)
             {
-                yield return PolynomialForm;
-                yield return NumberForm;
+                PossibleForms[Numbers.Exact] = true;
             }
+
+            HasTrig = os.ts.tfs.HasTrig;
+
+            return ans;
         }
 
-        public Dictionary<char, Operand> Knowns = new Dictionary<char, Operand>();
-        public RestrictedHashSet<char> Unknowns = new RestrictedHashSet<char>();
 
-        public bool HasTrig { get; internal set; }
+
+        //Mess
+        public bool IsNegative => (Value is Term && (Value as Term).Coefficient < 0) || (Value is Expression && (Value as Expression).IsNegative);
+
+        public bool IsConstant() => (Value as dynamic)?.IsConstant() ?? false;
+        public bool IsConstant(double d)
+        {
+            double constant;
+            return IsConstant(out constant) && constant == d;
+        }
+        public bool IsConstant(out double v) { v = double.NaN; return (Value as dynamic).IsConstant(out v); }
+
+        public bool HasTrig { get; private set; }
 
         internal Dictionary<Enum, bool> PossibleForms = new Dictionary<Enum, bool>()
         {
             { Numbers.Decimal, true }
         };
         public bool HasForm(Enum e) => PossibleForms.ContainsKey(e) && PossibleForms[e];
+        //Mess
 
-        internal static Operand Instance;
 
-        internal Expression value;
 
-        internal Operand(Expression e) => value = e;
+        public HashSet<char> Unknowns => os?.ts?.vs?.Unknowns ?? new HashSet<char>();
+
+        internal Term TermForm => (Term)(Value as dynamic);
+        internal Expression ExpressionForm => (Expression)(Value as dynamic);
+
+        private object Value;
+
+        internal Operand(Expression e) => Value = e;
+        internal Operand(Term t) => Value = t;
 
         public static implicit operator Operand(double d) => new Operand(d);
 
-        internal static Expression Add(Expression e1, Expression e2) => Expression.Add(e1, e2);
-        internal static Expression Subtract(Expression e1, Expression e2) => Expression.Add(e1, Expression.Distribute(e2, -1));
-        internal static Expression Multiply(Expression e1, Expression e2) => Term.Multiply(e1, e2);
-        internal static Expression Divide(Expression e1, Expression e2) => Term.Multiply(e1, Term.Exponentiate(e2, -1));
-        internal static Expression Exponentiate(Expression e1, Expression e2) => Term.Exponentiate(e1, e2);
+        public static Operand operator +(Operand o1, Operand o2) { o1.Copy().Add(o2.Copy()); return o1; }
+        public static Operand operator -(Operand o1, Operand o2) { o1.Copy().Subtract(o2.Copy()); return o1; }
+        public static Operand operator *(Operand o1, Operand o2) { o1.Copy().Multiply(o2.Copy()); return o1; }
+        public static Operand operator /(Operand o1, Operand o2) { o1.Copy().Divide(o2.Copy()); return o1; }
+        public static Operand operator ^(Operand o1, Operand o2) { o1.Copy().Exponentiate(o2.Copy()); return o1; }
 
-        internal static Expression FilterIdentity(double identity, Func<List<Expression>, Expression> operation, Expression[] expressions)
+        internal void Add(Operand other)
         {
-            List<Expression> list = new List<Expression>();
-
-            foreach (Expression e in expressions)
-            {
-                if (!e.IsConstant(identity))
-                {
-                    list.Add(e);
-                }
-            }
-
-            if (list.Count == 0)
-            {
-                return identity;
-            }
-            else if (list.Count == 1)
-            {
-                return list[0];
-            }
-            else
-            {
-                return operation(list);
-            }
+            Expression e = ExpressionForm;
+            e.Add(other.ExpressionForm);
+            Value = e;
+        }
+        internal void Subtract(Operand other)
+        {
+            other.Multiply(-1);
+            Add(other);
+        }
+        internal void Multiply(Operand other)
+        {
+            Term t = TermForm;
+            t.Multiply(other.TermForm);
+            Value = t;
+        }
+        internal void Divide(Operand other)
+        {
+            other.Exponentiate(-1);
+            Multiply(other);
+        }
+        internal void Exponentiate(Operand other)
+        {
+            Term t = TermForm;
+            t.Exponentiate(other);
+            Value = t;
         }
 
-        public static Operand operator +(Operand o1, Operand o2) => Add(o1.value.Copy(), o2.value.Copy());
-        public static Operand operator -(Operand o1, Operand o2) => Subtract(o1.value.Copy(), o2.value.Copy());
-        public static Operand operator *(Operand o1, Operand o2) => Multiply(o1.value.Copy(), o2.value.Copy());
-        public static Operand operator /(Operand o1, Operand o2) => Divide(o1.value.Copy(), o2.value.Copy());
-        public static Operand operator ^(Operand o1, Operand o2) => Exponentiate(o1.value.Copy(), o2.value.Copy());
+        public Polynomials GetPolynomials => Value is Term ? Polynomials.Factored : Polynomials.Expanded;
 
-        public Polynomials Polynomials => value.Terms.Count == 1 ? Polynomials.Factored : Polynomials.Expanded;
-
-        public Operand Format(Polynomials polynomials, Numbers numbers, Trigonometry trig)
+        public Operand Format(Polynomials polynomials, Numbers numbers, Trigonometry trig, Dictionary<char, Operand> knowns = null)
         {
-            Instance = this;
-
             Form f = new Form(polynomials, numbers, trig);
 
             //Check to see if we already know we can't do this form
@@ -138,9 +205,8 @@ namespace Crunch.Engine
                 }
             }
 
-            Unknowns.Clear();
             print.log("formatting");
-            Operand ans = value.Format(f);
+            Operand ans = Simplify(polynomials, numbers, trig, knowns);
 
             //Make sure we found every form we were looking for
             foreach (Enum e in f)
@@ -155,10 +221,72 @@ namespace Crunch.Engine
             return ans;
         }
 
-        public override string ToString() => value.ToString();
+        public Operand Copy() => (Value as dynamic).Copy();
 
-        public override int GetHashCode() => value.GetHashCode();
+        public override string ToString() => (Value as dynamic).ToString();
 
-        public override bool Equals(object obj) => (obj is Operand && value.Equals((obj as Operand).value)) || (obj is Expression && value.Equals(obj as Expression));
+        public override int GetHashCode() => (Value as dynamic).GetHashCode();
+
+        public override bool Equals(object obj) => obj is Operand && (Value as dynamic).Equals((obj as Operand).Value as dynamic);
+
+        public int CompareTo(Operand other) => Value is Term ? (Value as Term).CompareTo(other.TermForm) : (Value as Expression).CompareTo(other.ExpressionForm);
+
+        internal class Simplifier : ISimplifier<Operand>
+        {
+            public bool CanFactor = false;
+            public bool CanExpand = false;
+
+            public Term.Simplifier ts;
+            private Polynomials p;
+
+            public Simplifier(Term.Simplifier ts, Polynomials p)
+            {
+                this.ts = ts;
+                this.p = p;
+            }
+
+            public Simplifier(Polynomials p, Numbers n, Trigonometry t, Dictionary<char, Operand> dict)
+            {
+                this.ts = new Term.Simplifier(new Variable.Simplifier(this, dict, n), new TrigFunction.Simplifier(t, this), this, n);
+                this.p = p;
+            }
+
+            public Operand Simplify(Operand o)
+            {
+                o = o.Copy();
+
+                if (p == Polynomials.Factored)
+                {
+                    Term factored;
+
+                    if (o.Value is Term)
+                    {
+                        factored = o.Value as Term;
+                    }
+                    else
+                    {
+                        Term.ToTerm(o.Value as Expression, out factored);
+                    }
+
+                    if (factored != null)
+                    {
+                        CanFactor = true;
+                        return ts.Simplify(factored);
+                    }
+                }
+
+                Expression temp = o.ExpressionForm;
+
+                if (temp != null)
+                {
+                    CanExpand = true;
+                    return new Expression.Simplifier(ts).Simplify(temp);
+                }
+                else
+                {
+                    return ts.Simplify(o.Value as Term);
+                }
+            }
+        }
     }
 }

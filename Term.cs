@@ -6,11 +6,11 @@ using System.Text;
 
 using System.Extensions;
 
-namespace Crunch.Engine
+namespace Crunch
 {
-    using Pair = KeyValuePair<object, Expression>;
+    using Pair = KeyValuePair<object, Operand>;
 
-    internal class Term
+    internal class Term : IComparable<Term>
     {
         public double Coefficient
         {
@@ -28,17 +28,22 @@ namespace Crunch.Engine
             private set { setCoefficient(denominator: value); }
         }
 
-        private GroupedDictionary<Expression> members = new GroupedDictionary<Expression>();
-        private int nonConstantKeyCount => members.Count - members.TypeCount(typeof(double));
+        /********************************** REPRESENTATION **********************************/
+        private GroupedDictionary<Operand> members = new GroupedDictionary<Operand>();
         private double[] coefficient = new double[2] { 1, 1 };
+        /********************************** REPRESENTATION **********************************/
 
-        public static readonly int digitsPrecision = 15;
-        public static readonly double MaxCoefficient = System.Math.Pow(10, 15);
-        public static readonly double MinCoefficient = 0.1;
-        private static readonly double ten = 10;
+        private int nonConstantKeyCount => members.Count - members.TypeCount(typeof(double));
 
-        public static bool CanExponentiate(double b, double p) => !double.IsInfinity(System.Math.Pow(b, p));
+        public static readonly double MAX_COEFFICIENT = System.Math.Pow(10, 15);
+        //public static readonly double MinCoefficient = 0.1;
+        private static readonly double TEN = 10;
 
+        public bool IsConstant()
+        {
+            double d = double.NaN;
+            return IsConstant(out d);
+        }
         public bool IsConstant(out double value)
         {
             value = double.NaN;
@@ -69,27 +74,18 @@ namespace Crunch.Engine
 
         public List<KeyValuePair<double, double>> constantKeyValues()
         {
-            //double value = 1;
             List<KeyValuePair<double, double>> pairs = new List<KeyValuePair<double, double>>();
 
             foreach (double d in members.EnumerateKeys<double>())
             {
                 double power;
-                if (members[d].IsConstant(out power) && CanExponentiate(d, power))
+                if (members[d].IsConstant(out power) && Math.CanExponentiate(d, power))
                 {
-                    //yield return new KeyValuePair<double, double>(d, power);
                     pairs.Add(new KeyValuePair<double, double>(d, power));
-                    //value *= System.Math.Pow(d, power);
                 }
-                /*else if (mustBeConstant)
-                {
-                    return double.NaN;
-                }*/
             }
 
             return pairs;
-            //value *= Coefficient;
-            //return value;
         }
 
         public Term(double d) => Numerator = d;
@@ -98,7 +94,7 @@ namespace Crunch.Engine
         public Term(Function f) => multiply(f);
         private Term() { }
 
-        //public static implicit operator Operand(Term t) => new Operand(t);
+        public static implicit operator Operand(Term t) => new Operand(t);
 
         public Expression ToExpression()
         {
@@ -114,7 +110,7 @@ namespace Crunch.Engine
                     }
                     else
                     {
-                        return this;
+                        return null;
                     }
                 }
 
@@ -134,64 +130,78 @@ namespace Crunch.Engine
             }
             else
             {
-                return this;
+                return null;
             }
         }
 
-        //public static implicit operator Term(double d) => new Term(d);
-
         public static explicit operator Term(Expression e)
         {
-            Term t;
-            ToTerm(e, out t);
-            return t;
+            Term factored;
+
+            if (ToTerm(e, out factored))
+            {
+                return factored;
+            }
+
+            factored = new Term();
+            factored.multiply(e);
+            return factored;
         }
 
         public static bool ToTerm(Expression e, out Term ans)
         {
-            if (e.Terms.Count == 0)
+            List<Term> terms = new List<Term>();
+            foreach(Term t in e)
+            {
+                terms.Add(t);
+            }
+
+            if (terms.Count == 0)
             {
                 ans = new Term(0);
             }
-            else if (e.Terms.Count == 1)
+            else if (terms.Count == 1)
             {
-                ans = e.Terms[0];
+                ans = terms[0];
             }
             else
             {
                 ans = new Term();
 
                 int gcd = 0;
-                for (int i = 0; i < e.Terms.Count; i++)
+                for (int i = 0; i < terms.Count; i++)
                 {
-                    if (!e.Terms[i].Coefficient.IsInt())
+                    if (!terms[i].Coefficient.IsInt())
                     {
                         gcd = 1;
                         break;
                     }
                     else
                     {
-                        gcd = (int)GCD(gcd, e.Terms[i].Coefficient);
+                        gcd = (int)Math.GCD(gcd, terms[i].Coefficient);
                     }
                 }
 
-                int lcm = (int)e.Terms[0].Denominator;
-                for (int i = 1; i < e.Terms.Count; i++)
+                int lcm = (int)terms[0].Denominator;
+                for (int i = 1; i < terms.Count; i++)
                 {
-                    lcm = lcm * (int)e.Terms[i].Denominator / (int)GCD(lcm, e.Terms[i].Denominator);
+                    lcm = lcm * (int)terms[i].Denominator / (int)Math.GCD(lcm, terms[i].Denominator);
                 }
 
                 ans.setCoefficient(gcd, lcm);
 
-                foreach (Pair pair in e.Terms.Last().members.KeyValuePairs())
+                foreach (Pair pair in terms.Last().members.KeyValuePairs())
                 {
                     double max = double.MaxValue;
-                    foreach (Term t in e.Terms)
+                    foreach (Term t in terms)
                     {
-                        Expression exp = null;
-                        if (t.members.ContainsKey(pair.Key) && (exp = t.members[pair.Key]).IsConstant((d) => d.IsInt()))
+                        //Operand exp = null;
+                        //if (t.members.ContainsKey(pair.Key) && (exp = t.members[pair.Key]).IsConstant((d) => d.IsInt()))
+                        double d;
+                        if (t.members.ContainsKey(pair.Key) && t.members[pair.Key].IsConstant(out d) && d.IsInt())
                         {
-                            max = System.Math.Min(max, exp.Terms[0].Numerator);
+                            max = System.Math.Min(max, d);
+                            //max = System.Math.Min(max, exp.value.Terms[0].Numerator);
                         }
                         else
                         {
@@ -216,7 +226,9 @@ namespace Crunch.Engine
                 else
                 {
                     //e.Distribute(ans.Copy().Exponentiate(-1));
-                    e = Expression.Distribute(e, ans.Copy().Exponentiate(-1));
+                    Term copy = ans.Copy();
+                    copy.Exponentiate(-1);
+                    e = Expression.Distribute(e, copy);
                 }
 
                 ans.multiply(e);
@@ -224,7 +236,7 @@ namespace Crunch.Engine
 
             return true;
 
-            //e = e.Multiply(ans.Exponentiate(-1));
+            /*//e = e.Multiply(ans.Exponentiate(-1));
             //ans.multiply(e);
             //return ans;
 
@@ -244,150 +256,7 @@ namespace Crunch.Engine
             }
             //term.Multiply((Term)e);
 
-            //return term;
-        }
-
-        /*public List<char> Unknowns()
-        {
-            List<char> list = new List<char>();
-
-            foreach(char c in members.EnumerateKeys<char>())
-            {
-                if (!Math.KnownVariables.ContainsKey(c))
-                {
-                    list.Add(c);
-                }
-            }
-
-            foreach(Expression e in members.EnumerateKeys<Expression>())
-            {
-                foreach(Term t in e.Terms)
-                {
-                    list.AddRange(t.Unknowns());
-                }
-            }
-
-            return list;
-        }*/
-
-        /*private void formatExponent(object oldBase, Expression newBase, Func<Expression, Expression> simplification)
-        {
-            Expression power = simplification(members[oldBase]);
-            members.Remove(oldBase);
-            Multiply((Term)Exponentiate(newBase, power));
-        }*/
-
-        public Term Format(Operand.Form form)
-        {
-            Term ans = new Term();
-            ans.coefficient = new double[2] { coefficient[0], coefficient[1] };
-
-            foreach (Pair pair in members.KeyValuePairs())
-            {
-                Term key = null;
-                Expression value = pair.Value.Format(form);
-
-                if (pair.Key is Expression)
-                {
-                    key = (Term)(pair.Key as Expression).Format(new Operand.Form(Polynomials.Expanded, form.NumberForm, form.TrigonometryForm));
-                }
-                else if (pair.Key is TrigFunction)
-                {
-                    TrigFunction tf = pair.Key as TrigFunction;
-                    double d;
-                    if (tf.Operands[0].IsConstant(out d) || tf.Operands[0].Format(new Operand.Form(Polynomials.Expanded, Numbers.Decimal, form.TrigonometryForm)).IsConstant(out d))
-                    {
-                        /*bool deg = form.TrigonometryForm == Trigonometry.Degrees;
-                        
-                        double power;
-                        if (value.IsConstant(out power) && power == -1)
-                        {
-                            d = tf.Inverse(d);
-                            key = new Term(deg ? d * 180 / System.Math.PI : d);
-                            value = 1;
-                        }
-                        else
-                        {
-                            d = tf.Operation(deg ? d * System.Math.PI / 180 : d);
-                            if (System.Math.Abs(d) < System.Math.Pow(10, -15))
-                            {
-                                d = 0;
-                            }
-                            key = new Term(d);
-                        }*/
-
-                        double temp = System.Math.Round(tf.Operation(form.TrigonometryForm, d), 14);
-                        if (double.IsNaN(temp))
-                        {
-                            throw new Exception("Invalid input for trig function");
-                        }
-
-                        key = new Term(temp);
-                        Operand.Instance.HasTrig = true;
-                    }
-                }
-                else if (pair.Key is Function)
-                {
-                    Function f = pair.Key as Function;
-
-                    double[] inputs = new double[f.Operands.Length];
-                    for (int i = 0; f.Operands[i].IsConstant(out inputs[i]) || f.Operands[i].Format(new Operand.Form(Polynomials.Expanded, Numbers.Decimal, form.TrigonometryForm)).IsConstant(out inputs[i]); i++)
-                    {
-                        if (i == inputs.Length - 1)
-                        {
-                            key = new Term(f.Operation(inputs));
-                            break;
-                        }
-                    }
-                }
-                else if (pair.Key is char)
-                {
-                    char c = (char)pair.Key;
-
-                    if (Math.KnownVariables.ContainsKey(c))
-                    {
-                        if (form.NumberForm == Numbers.Decimal)
-                        {
-                            key = (Term)Math.KnownVariables[c].value.Format(form);
-                        }
-
-                        Operand.Instance.PossibleForms[Numbers.Exact] = true;
-                    }
-                    else
-                    {
-                        Operand.Instance.Unknowns.Add(c);
-
-                        if (Operand.Instance.Knowns.ContainsKey(c))
-                        {
-                            key = (Term)Operand.Instance.Knowns[c].value.Format(form);
-                        }
-                    }
-                }
-
-                if (key == null)
-                {
-                    key = new Term(pair.Key as dynamic);
-                }
-
-                //print.log("ljl;kjasdkl;jasdf'", key, value, Exponentiate(key, value), (Term)Exponentiate(key, value));
-                ans.Multiply((Term)Exponentiate(key, value));
-            }
-
-            bool wholeCoefficients = ans.coefficient[0].IsInt() && ans.coefficient[1].IsInt();
-            if (wholeCoefficients && ans.coefficient[1] != 1)
-            {
-                Operand.Instance.PossibleForms[Numbers.Exact] = true;
-            }
-
-            //Simplify fractions
-            if (form.NumberForm == Numbers.Decimal || !wholeCoefficients)
-            {
-                double d = ans.coefficient[1];
-                ans.coefficient[1] = 1;
-                ans.Numerator = ans.coefficient[0] / d;
-            }
-
-            return ans;
+            //return term;*/
         }
 
         public Term Copy()
@@ -402,144 +271,106 @@ namespace Crunch.Engine
             return t;
         }
 
-        public static Expression Multiply(params Expression[] expressions)
-        {
-            if (expressions.Length == 2)
-            {
-                print.log("multiplying expressions " + expressions[0] + " and " + expressions[1]);
-            }
-
-            foreach (Expression e in expressions)
-            {
-                if (e.IsConstant(0))
-                {
-                    return 0;
-                }
-            }
-
-            return Operand.FilterIdentity(1,
-                (list) =>
-                {
-                    Term ans = (Term)list[0];
-
-                    for (int i = 1; i < list.Count; i++)
-                    {
-                        ans.Multiply((Term)list[i]);
-                    }
-
-                    return ans;
-                },
-                expressions);
-        }
-
-        private Term Multiply(Term other)
+        internal void Multiply(Term other)
         {
             print.log("multiplying terms " + this + " and " + other);
+
+            double constant;
+            if (IsConstant(out constant) && constant == 1)
+            {
+                Clone(other);
+                return;
+            }
+            else if (constant == 0 || (other.IsConstant(out constant) && constant == 0))
+            {
+                members = new GroupedDictionary<Operand>();
+                coefficient = new double[] { 0, 1 };
+                return;
+            }
+            else if (constant == 1)
+            {
+                return;
+            }
 
             foreach (Pair pair in other.members.KeyValuePairs())
             {
                 multiply(pair.Key, pair.Value);
             }
+            
             setCoefficient(safelyMultiply(Numerator, other.Numerator), safelyMultiply(Denominator, other.Denominator));
-            return this;
         }
 
         /******************************* EXPONENTIATION *******************************/
 
-        public static Expression Exponentiate(Expression bse, Expression power)
+        internal void Exponentiate(Operand exponent)
         {
-            double baseConstant;
-            double powerConstant;
+            print.log("exponentiating " + this, exponent);
 
-            bool constantBase = bse.IsConstant(out baseConstant);
-            bool constantPower = power.IsConstant(out powerConstant);
+            double baseConstant;
+            double expConstant;
+
+            bool constantBase = IsConstant(out baseConstant);
+            bool constantExp = exponent.IsConstant(out expConstant);
 
             //0 ^ something
             if (constantBase && baseConstant == 0)
             {
                 //0 in the denominator is undefined
-                if (power.IsNegative)
+                if (exponent.IsNegative)
                 {
                     throw new DivideByZeroException();
                 }
                 //0 ^ anything is 0
                 else
                 {
-                    return 0;
+                    members = new GroupedDictionary<Operand>();
+                    coefficient = new double[] { 0, 1 };
+                    return;
                 }
             }
             //1 ^ anything or anything ^ 0 is 1
-            else if ((constantBase && baseConstant == 1) || (constantPower && powerConstant == 0))
+            else if ((constantBase && baseConstant == 1) || (constantExp && expConstant == 0))
             {
-                return 1;
+                members = new GroupedDictionary<Operand>();
+                coefficient = new double[] { 1, 1 };
+                return;
             }
             //anything ^ 1 is itself
-            else if (constantPower && powerConstant == 1)
+            else if (constantExp && expConstant == 1)
             {
-                return bse;
-            }
-            else
-            {
-                return ((Term)bse).Exponentiate(power);
-            }
-        }
-
-        private Term Exponentiate(Expression power)
-        {
-            print.log("exponentiating " + this, power);
-
-            double d;
-            if (IsConstant(out d) && d == 0)
-            //if (members.Count == 0 && Numerator == 0)
-            {
-                if (power.IsNegative)
-                {
-                    throw new DivideByZeroException();
-                }
-                else
-                {
-                    return this;
-                }
+                return;
             }
 
             Term t = new Term();
-            double exp;
-            bool constantExponent = power.IsConstant(out exp);
-
-            if (constantExponent && exp == 0)
-            {
-                return new Term();
-            }
 
             for (int i = 0; i < 2; i++)
             {
                 if (coefficient[i] != 1)
                 {
-                    if (constantExponent && CanExponentiate(coefficient[i], System.Math.Abs(exp)))
+                    if (constantExp && Math.CanExponentiate(coefficient[i], System.Math.Abs(expConstant)))
                     {
                         int sign = 1;
-                        if (exp > 0 && exp < 1 && 1 / exp % 2 == 1 && coefficient[i] < 0)
+                        if (expConstant > 0 && expConstant < 1 && 1 / expConstant % 2 == 1 && coefficient[i] < 0)
                         {
                             sign = -1;
                             coefficient[i] *= -1;
                         }
 
-                        double temp = sign * System.Math.Pow(coefficient[i], System.Math.Abs(exp));
+                        double temp = sign * System.Math.Pow(coefficient[i], System.Math.Abs(expConstant));
 
                         if (double.IsNaN(temp))
                         {
                             throw new Exception("Imaginary answer");
                         }
 
-                        t.coefficient[(i == 0 ^ exp > 0).ToInt()] = System.Math.Round(temp, 14);
+                        t.coefficient[(i == 0 ^ expConstant > 0).ToInt()] = System.Math.Round(temp, 14);
                     }
                     else
                     {
-                        Expression p = power.Copy();
+                        Operand p = exponent.Copy();
                         if (i == 1)
                         {
-                            //power.Multiply(-1);
-                            p = Operand.Multiply(power, -1);
+                            p.Multiply(-1);
                         }
                         t.multiply(coefficient[i], p);
                     }
@@ -548,17 +379,117 @@ namespace Crunch.Engine
 
             foreach (Pair pair in members.KeyValuePairs())
             {
-                t.multiply(pair.Key, Operand.Multiply(pair.Value, power));
+                pair.Value.Multiply(exponent);
+                t.multiply(pair.Key, pair.Value);
             }
 
             t.setCoefficient(t.coefficient[0], t.coefficient[1]);
-
-            return t;
+            Clone(t);
         }
 
-        public bool TryAdd(Term t, out Term ans)
+        /*internal void exponentiate(Operand exponent)
+        {
+            print.log("exponentiating " + this, exponent);
+
+            double baseConstant;
+            double expConstant;
+
+            bool constantBase = IsConstant(out baseConstant);
+            bool constantExp = exponent.IsConstant(out expConstant);
+
+            //0 ^ something
+            if (constantBase && baseConstant == 0)
+            {
+                //0 in the denominator is undefined
+                if (exponent.IsNegative)
+                {
+                    throw new DivideByZeroException();
+                }
+                //0 ^ anything is 0
+                else
+                {
+                    members = new GroupedDictionary<Operand>();
+                    coefficient = new double[] { 0, 1 };
+                    return;
+                }
+            }
+            //1 ^ anything or anything ^ 0 is 1
+            else if ((constantBase && baseConstant == 1) || (constantExp && expConstant == 0))
+            {
+                members = new GroupedDictionary<Operand>();
+                coefficient = new double[] { 1, 1 };
+                return;
+            }
+            //anything ^ 1 is itself
+            else if (constantExp && expConstant == 1)
+            {
+                return;
+            }
+
+            double[] newCoefficient = new double[2];
+            for (int i = 0; i < 2; i++)
+            {
+                if (coefficient[i] != 1)
+                {
+                    if (constantExp && Math.CanExponentiate(coefficient[i], System.Math.Abs(expConstant)))
+                    {
+                        //Handle negative constants to odd fraction powers (ie (-4)^(1/3))
+                        int sign = 1;
+                        if (expConstant > 0 && expConstant < 1 && 1 / expConstant % 2 == 1 && coefficient[i] < 0)
+                        {
+                            sign = -1;
+                            coefficient[i] *= -1;
+                        }
+
+                        double temp = sign * System.Math.Pow(coefficient[i], System.Math.Abs(expConstant));
+
+                        if (double.IsNaN(temp))
+                        {
+                            throw new Exception("Imaginary answer");
+                        }
+
+                        newCoefficient[(i == 0 ^ expConstant > 0).ToInt()] = System.Math.Round(temp, 14);
+                    }
+                    else
+                    {
+                        Operand p = exponent.Copy();
+                        if (i == 1)
+                        {
+                            p.Multiply(-1);
+                        }
+                        multiply(coefficient[i], p);
+                    }
+                }
+            }
+
+            foreach (Pair pair in members.KeyValuePairs())
+            {
+                pair.Value.Multiply(exponent);
+            }
+
+            setCoefficient(newCoefficient[0], newCoefficient[1]);
+        }*/
+
+        private void Clone(Term t)
+        {
+            members = t.members;
+            coefficient = t.coefficient;
+        }
+
+        public bool TryAdd(Term t)
         {
             print.log("adding terms " + this + " and " + t);
+
+            double constant;
+            if (IsConstant(out constant) && constant == 0)
+            {
+                Clone(t);
+                return true;
+            }
+            else if (t.IsConstant(out constant) && constant == 0)
+            {
+                return true;
+            }
 
             bool isLike = members.Count - constantKeyValues().Count == t.members.Count - t.constantKeyValues().Count;
             bool isFraction = false;
@@ -566,13 +497,13 @@ namespace Crunch.Engine
             foreach (Pair pair in members.KeyValuePairs())
             {
                 double d;
-                if (isLike && !(pair.Key is double && pair.Value.IsConstant(out d) && CanExponentiate((double)pair.Key, d)))
+                if (isLike && !(pair.Key is double && pair.Value.IsConstant(out d) && Math.CanExponentiate((double)pair.Key, d)))
                 {
                     isLike = t.members.ContainsKey(pair.Key) && pair.Value.ToString() == t.members[pair.Key].ToString();
                 }
                 isFraction = isFraction || pair.Value.IsNegative;
             }
-            
+
             if (!isLike && !isFraction)
             {
                 foreach (Pair pair in t.members.KeyValuePairs())
@@ -585,13 +516,13 @@ namespace Crunch.Engine
             //Like and fraction -- add constants as fraction
             //Not like and not fraction -- new expression
             //Not like and fraction -- add everything as fraction
-            
+
             if (isLike)
             {
                 double d1 = Numerator * t.Denominator;// safelyMultiply(Numerator, t.Denominator);
                 double d2 = t.Numerator * Denominator;// safelyMultiply(t.Numerator, Denominator);
                 double d3 = Denominator * t.Denominator;// safelyMultiply(Denominator, t.Denominator);
-                
+
                 for (int i = 0; i < 2; i++)
                 {
                     Term temp = i == 0 ? this : t;
@@ -621,10 +552,8 @@ namespace Crunch.Engine
                         temp.members.Remove(pair.Key);
                     }
                 }
-                
+
                 setCoefficient(d1 + d2, d3);
-                //setCoefficient(Numerator * t.Denominator + t.Numerator * Denominator, Denominator * t.Denominator);
-                ans = this;
             }
             else if (isFraction && nonConstantKeyCount > 0 && t.nonConstantKeyCount > 0)
             {
@@ -641,7 +570,8 @@ namespace Crunch.Engine
                         {
                             denominator.multiply(pair.Key is Expression ? (pair.Key as Expression).Copy() : pair.Key, pair.Value.Copy());
 
-                            numerator[1 - i].multiply(pair.Key, Operand.Multiply(pair.Value, -1));// pair.Value.Multiply(-1));
+                            pair.Value.Multiply(-1);
+                            numerator[1 - i].multiply(pair.Key, pair.Value);
                         }
                         else
                         {
@@ -653,15 +583,19 @@ namespace Crunch.Engine
                 numerator[0].Numerator = numerator[0].safelyMultiply(Numerator, t.Denominator);
                 numerator[1].Numerator = numerator[1].safelyMultiply(Denominator, t.Numerator);
                 denominator.Numerator = denominator.safelyMultiply(Denominator, t.Denominator);
-                Expression e = Operand.Add(numerator[0], numerator[1]);
-                ans = ((Term)e).Multiply(denominator);
+
+                Operand o = numerator[0];
+                o.Add(numerator[1]);
+
+                Term top = o.TermForm;
+                top.Multiply(denominator);
+
+                Clone(top);
             }
             else
             {
-                ans = null;
                 return false;
             }
-            //}
 
             return true;
         }
@@ -669,7 +603,7 @@ namespace Crunch.Engine
         /******************************* MULTIPLICATION *******************************/
         private double safelyMultiply(double d1, double d2)
         {
-            if (d1 * d2 >= MaxCoefficient)
+            if (d1 * d2 >= MAX_COEFFICIENT)
             {
                 return (d1.IsInt() && d1 % 10 == 0 ? trimZeroes(d1.ToString()) : d1) * (d2.IsInt() && d2 % 10 == 0 ? trimZeroes(d2.ToString()) : d2);
             }
@@ -699,7 +633,7 @@ namespace Crunch.Engine
             {
                 multiply(10, power);
             }
-
+            
             return d;
         }
 
@@ -709,56 +643,51 @@ namespace Crunch.Engine
             {
                 double d = i == 0 ? numerator : denominator;
 
-                if (!double.IsNaN(d))
+                if (double.IsNaN(d))
                 {
-                    string num = d.ToString();
-
-                    //Fix doubles with 'E' representation
-                    if (num.Contains("E"))
-                    {
-                        d = double.Parse(num.Substring(0, num.IndexOf("E")));
-                        double power = (i * -2 + 1) * double.Parse(num.Substring(num.IndexOf("E") + 1));
-                        
-                        /*int precision = d.ToString().Length - 2;
-                        if (precision > 0 && precision < 14)
-                        {
-                            d *= System.Math.Pow(10, precision);
-                            power -= precision;
-                        }*/
-                        
-                        multiply(ten, power);
-                    }
-
-                    if (d != 0)
-                    {
-                        Expression exp = null;
-                        bool scientificNotation = members.ContainsKey(ten) && (exp = members[ten]).Terms.Count == 1 && exp.Terms[0].members.Count == 0;
-                        int places = (int)System.Math.Floor(System.Math.Log10(System.Math.Abs(d)));
-
-                        //If the number is currently being represented in scientific notation, make sure it needs to be
-                        if (scientificNotation)
-                        {
-                            double powerOf10 = (i * -2 + 1) * exp.Terms[0].Coefficient;
-
-                            //Multiply the power of 10 into the coefficient if it won't be too large
-                            if (powerOf10 + places >= 0 && powerOf10 + places < 15)
-                            {
-                                d *= System.Math.Pow(10, powerOf10);
-                                members.Remove(ten);
-                                scientificNotation = false;
-                            }
-                        }
-
-                        //If we can't get rid of the power of 10 or the coefficient is too small to be rounded, make sure we have correctly formatted scientific notation
-                        if ((scientificNotation && !d.IsInt() && places != 0) || (System.Math.Abs(d) < 0.1))
-                        {
-                            d /= System.Math.Pow(10, places);
-                            multiply(ten, places * (i * -2 + 1));
-                        }
-                    }
-
-                    coefficient[i] = d;
+                    continue;
                 }
+
+                string num = d.ToString();
+
+                //Fix doubles with 'E' representation
+                if (num.Contains("E"))
+                {
+                    d = double.Parse(num.Substring(0, num.IndexOf("E")));
+                    double power = (i * -2 + 1) * double.Parse(num.Substring(num.IndexOf("E") + 1));
+
+                    multiply(TEN, power);
+                }
+
+                if (d != 0)
+                {
+                    double powerOf10 = 1;
+                    bool scientificNotation = members.ContainsKey(TEN) && members[TEN].IsConstant(out powerOf10);
+                    int places = (int)System.Math.Floor(System.Math.Log10(System.Math.Abs(d)));
+
+                    //If the number is currently being represented in scientific notation, make sure it needs to be
+                    if (scientificNotation)
+                    {
+                        powerOf10 *= i * -2 + 1;
+
+                        //Multiply the power of 10 into the coefficient if it won't be too large
+                        if (powerOf10 + places >= 0 && powerOf10 + places < 15)
+                        {
+                            d *= System.Math.Pow(10, powerOf10);
+                            members.Remove(TEN);
+                            scientificNotation = false;
+                        }
+                    }
+
+                    //If we can't get rid of the power of 10 or the coefficient is too small to be rounded, make sure we have correctly formatted scientific notation
+                    if ((scientificNotation && !d.IsInt() && places != 0) || (System.Math.Abs(d) < 0.1))
+                    {
+                        d /= System.Math.Pow(10, places);
+                        multiply(TEN, places * (i * -2 + 1));
+                    }
+                }
+
+                coefficient[i] = d;
             }
 
             if (coefficient[0].IsInt() && coefficient[1].IsInt() && coefficient[0] != 1 && coefficient[1] != 1)
@@ -766,13 +695,13 @@ namespace Crunch.Engine
                 int gcd = 1;
 
                 //Divide out the GCD
-                if ((gcd *= (int)GCD(coefficient[0], coefficient[1])) != 1)
+                if ((gcd *= (int)Math.GCD(coefficient[0], coefficient[1])) != 1)
                 {
                     coefficient[0] /= gcd;
                     coefficient[1] /= gcd;
                 }
             }
-
+            
             checkForHashedCoefficients();
         }
 
@@ -782,7 +711,7 @@ namespace Crunch.Engine
             {
                 if (members.ContainsKey(coefficient[i]))
                 {
-                    members[coefficient[i]] = Operand.Add(members[coefficient[i]], i * -2 + 1);
+                    members[coefficient[i]].Add(i * -2 + 1);
                     coefficient[i] = 1;
                 }
             }
@@ -790,39 +719,29 @@ namespace Crunch.Engine
         
         private void multiply(object key) => multiply(key, 1);
 
-        private void multiply(object key, Expression value)
+        private void multiply(object key, Operand value)
         {
             if (key is int)
             {
                 key = (double)(int)key;
-
-                /*if ((int)(double)key == (double)key)
-                {
-                    key = (int)(double)key;
-                }
-                else
-                {
-                    throw new Exception("Decimals cannot be the base of an exponent " + key);
-                }*/
             }
 
             if (key is double && (double)key == 1)
             {
                 return;
             }
-
+            
             if (!members.ContainsKey(key))
             {
                 members.Add(key, value);
             }
             else
             {
-                members[key] = Operand.Add(members[key], value);
+                members[key].Add(value);
             }
 
             checkForHashedCoefficients();
 
-            //value = members[key];
             double power;
             if (members[key].IsConstant(out power))
             {
@@ -831,47 +750,38 @@ namespace Crunch.Engine
                 {
                     members.Remove(key);
                 }
-                else if (key is double && (double)key != 10 && CanExponentiate((double)key, power))
+                else if (key is double && (double)key != 10 && Math.CanExponentiate((double)key, power))
                 {
                     members.Remove(key);
-                    Multiply(new Term((double)key).Exponentiate(power));
-                    //Multiply(new Term(key.ToString()).Exponentiate((value as Term).Coefficient));
-                    //setCoefficient();
+
+                    Term t = new Term((double)key);
+                    t.Exponentiate(power);
+                    Multiply(t);
                 }
             }
         }
 
-        public static double GCD(double a, double b)
-        {
-            if (a == 0)
-            {
-                return b;
-            }
-            if (b == 0)
-            {
-                return a;
-            }
-
-            var sign = System.Math.Sign(a) * System.Math.Sign(b);
-            a = System.Math.Abs(a);
-            b = System.Math.Abs(b);
-
-            return sign * a > b ? GCD(a % b, b) : GCD(a, b % a);
-        }
-
         /******************************* ADDITION *******************************/
 
-        /*private bool IsLike(Term other)
+        private bool IsLike(Term other)
         {
             if (other.members.Count != members.Count)
             {
                 return false;
             }
 
+            foreach (Type t in Order)
+            {
+                if (members.TypeCount(t) != other.members.TypeCount(t))
+                {
+                    return false;
+                }
+            }
+
             foreach (Pair pair in other.members.KeyValuePairs())
             {
-                Expression power;
-                if (!members.TryGetValue(pair.Key, out power) || !power.Equals(pair.Value))
+                Operand exponent;
+                if (!members.TryGetValue(pair.Key, out exponent) || !exponent.Equals(pair.Value))
                 {
                     return false;
                 }
@@ -882,7 +792,7 @@ namespace Crunch.Engine
 
         public override int GetHashCode() => ToString().GetHashCode();
 
-        public override bool Equals(object obj)
+        /*public override bool Equals(object obj)
         {
             //print.log("term comparing " + this + " to " + obj);
             if (obj is Expression)
@@ -920,70 +830,102 @@ namespace Crunch.Engine
             }
 
             return System.Math.Abs(c1[i] - c2[i]) <= 1 && IsLike(other);
-        }
-
-        private static int Compare(Tuple<char, Expression> first, Tuple<char, Expression> second)
-        {
-            int power = Expression.Compare(first.Item2, second.Item2);
-
-            if (power != 0)
-            {
-                return power;
-            }
-
-            return first.Item1.CompareTo(second.Item1);
-        }
-
-        private Tuple<char, Expression> MaxVariable()
-        {
-            Tuple<char, Expression> max = null;
-
-            foreach(char c in members.EnumerateKeys<char>())
-            {
-                Tuple<char, Expression> t = new Tuple<char, Expression>(c, members[c]);
-                if (max == null || Compare(t, max) == 1)
-                {
-                    max = t;
-                }
-            }
-
-            return max;
-        }
-
-        internal class TermComparer : IComparer, IComparer<Term>
-        {
-            public int Compare(Term x, Term y)
-            {
-                var xmax = x.MaxVariable();
-                var ymax = y.MaxVariable();
-
-                if (xmax == null ^ ymax == null)
-                {
-                    return ymax == null ? 1 : -1;
-                }
-
-                int variables = xmax == null ? 0 : Term.Compare(xmax, ymax);
-                
-                if (variables == 0)
-                {
-                    return x.Coefficient.CompareTo(y.Coefficient);
-                }
-                else
-                {
-                    return variables;
-                }
-            }
-
-            public int Compare(object x, object y)
-            {
-                if (!(x is Term) || !(y is Term))
-                {
-                    throw new Exception("Can't compare");
-                }
-
-                return Compare(x as Term, y as Term);
-            }
         }*/
+
+        private static readonly List<Type> Order = new List<Type>() {
+            typeof(double),
+            typeof(char),
+            typeof(TrigFunction),
+            typeof(Function),
+            typeof(Expression)
+        };
+
+        private int Compare(KeyValuePair<Operand, object> a, KeyValuePair<Operand, object> b)
+        {
+            int compare = a.Key.CompareTo(b.Key);
+
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            int index1 = Order.IndexOf(a.Value.GetType());
+            int index2 = Order.IndexOf(b.Value.GetType());
+
+            if (index1 != index2)
+            {
+                return index1.CompareTo(index2);
+            }
+
+            return a.Value is char ? ((char)b.Value).CompareTo((char)a.Value) : (a.Value as dynamic).CompareTo(b.Value as dynamic);
+        }
+
+        private IEnumerable<KeyValuePair<Operand, object>> SortByExponent()
+        {
+            SortedSet<KeyValuePair<Operand, object>> sorted = new SortedSet<KeyValuePair<Operand, object>>(
+                Comparer<KeyValuePair<Operand, object>>.Create((a, b) => Compare(b, a))
+                );
+
+            foreach(Pair pair in members.KeyValuePairs())
+            {
+                sorted.Add(new KeyValuePair<Operand, object>(pair.Value, pair.Key));
+            }
+
+            return sorted;
+        }
+
+        public int CompareTo(Term other)
+        {
+            print.log("comparing term " + this + " to term " + other);
+            IEnumerator<KeyValuePair<Operand, object>> itr1 = SortByExponent().GetEnumerator();
+            IEnumerator<KeyValuePair<Operand, object>> itr2 = other.SortByExponent().GetEnumerator();
+
+            do
+            {
+                bool b1 = itr1.MoveNext();
+                bool b2 = itr2.MoveNext();
+                
+                if (!b1 && !b2)
+                {
+                    return Coefficient.CompareTo(other.Coefficient);
+                }
+                else if (!b1)
+                {
+                    return -1;
+                }
+                else if (!b2)
+                {
+                    return 1;
+                }
+
+                int compare = Compare(itr1.Current, itr2.Current);// itr1.Current.Key.CompareTo(itr2.Current.Key);
+                
+                if (compare != 0)
+                {
+                    return compare;
+                }
+            }
+            while (true);
+        }
+
+        public override bool Equals(object obj)
+        {
+            print.log("comparing term " + this + " to " + obj);
+
+            Term other = obj as Term ?? (Term)(obj as Expression);
+
+            if (other == null)
+            {
+                return false;
+            }
+
+            if (System.Math.Round(Coefficient, 3) != System.Math.Round(other.Coefficient, 3))
+            {
+                return false;
+            }
+
+            return IsLike(other);
+        }
 
         public override string ToString()
         {
@@ -1059,6 +1001,69 @@ namespace Crunch.Engine
 
             string sign = Coefficient < 0 ? "-" : "";
             return sign + (fraction[1] == ")" ? fraction[0] : "(" + fraction[0] + ")/(" + fraction[1]);
+        }
+
+        public class Simplifier : ISimplifier<Term>
+        {
+            public bool HasExactForm => hasExactForm || vs.HasExactForm;
+
+            public Variable.Simplifier vs;
+            public TrigFunction.Simplifier tfs;
+            private Function.Simplifier fs;
+            private Operand.Simplifier os;
+            private Expression.Simplifier es;
+
+            private Numbers numbers;
+            private bool hasExactForm = false;
+
+            public Simplifier(Variable.Simplifier vs, TrigFunction.Simplifier tfs, Operand.Simplifier os, Numbers numbers)
+            {
+                this.vs = vs;
+                this.tfs = tfs;
+                fs = new Function.Simplifier(os);
+                this.os = os;
+                this.es = new Expression.Simplifier(this);
+                this.numbers = numbers;
+            }
+
+            public Operand Simplify(Term t)
+            {
+                print.log("simplifying " + t);
+                Term b = new Term(1);
+                b.coefficient[0] = t.coefficient[0];
+                b.coefficient[1] = t.coefficient[1];
+                Operand ans = b;
+
+                foreach (Pair pair in t.members.KeyValuePairs())
+                {
+                    Operand o = Simplify(pair.Key as dynamic);
+                    o.Exponentiate(os.Simplify(pair.Value));
+                    ans.Multiply(o);
+                }
+
+                Term a = ans.TermForm;
+                bool wholeCoefficients = a.coefficient[0].IsInt() && a.coefficient[1].IsInt();
+                if (wholeCoefficients && a.coefficient[1] != 1)
+                {
+                    hasExactForm = true;
+                }
+
+                //Simplify fractions
+                if (numbers == Numbers.Decimal || !wholeCoefficients)
+                {
+                    double d = a.coefficient[1];
+                    a.coefficient[1] = 1;
+                    a.Numerator = a.coefficient[0] / d;
+                }
+
+                print.log("simplified " + t + " to " + ans);
+                return ans;
+            }
+            
+            private Operand Simplify(char c) => vs?.Simplify(c) ?? new Term(c);
+            private Operand Simplify(TrigFunction tf) => tfs?.Simplify(tf) ?? new Term(tf);
+            private Operand Simplify(Function f) => fs?.Simplify(f) ?? new Term(f);
+            private Operand Simplify(Expression e) => es?.Simplify(e.Copy()) ?? e.Copy();
         }
     }
 }

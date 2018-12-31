@@ -3,21 +3,32 @@ using System.Collections.Generic;
 using System.Text;
 
 using System.Extensions;
+using System.Collections;
 
-namespace Crunch.Engine
+namespace Crunch
 {
-    internal class Expression
+    internal class Expression : IComparable<Expression>, IEnumerable<Term>
     {
-        public IReadOnlyList<Term> Terms => terms;
-        private List<Term> terms = new List<Term>();
-        private SortedSet<Term> test = new SortedSet<Term>();
+        public int TermCount => Terms.Count;
 
-        public bool IsNegative => terms.Count == 1 && terms[0].Coefficient < 0;
+        private SortedSet<Term> Terms = new SortedSet<Term>(Comparer<Term>.Create((a, b) => b.CompareTo(a)));
+
+        private Term First
+        {
+            get
+            {
+                IEnumerator<Term> itr = Terms.GetEnumerator();
+                itr.MoveNext();
+                return itr.Current;
+            }
+        }
+
+        public bool IsNegative => Terms.Count == 1 && First.Coefficient < 0;
 
         public bool IsConstant(out double d)
         {
             d = 0;
-            return terms.Count == 0 || (terms.Count == 1 && terms[0].IsConstant(out d));
+            return Terms.Count == 0 || (Terms.Count == 1 && First.IsConstant(out d));
         }
         public bool IsConstant(double d) => IsConstant((temp) => d == temp);
         public bool IsConstant(Func<double, bool> condition = null)
@@ -34,248 +45,158 @@ namespace Crunch.Engine
                 {
                     throw new Exception("can't add null");
                 }
-                terms.Add(t);
+                Terms.Add(t);
             }
         }
 
+        public static explicit operator Expression(Term t) => t.ToExpression() ?? new Expression(t);
         public static implicit operator Operand(Expression e) => new Operand(e);
-        public static implicit operator Expression(Term t) => new Expression(t);
         public static implicit operator Expression(double d) => new Expression(new Term(d));
 
-        public static Expression Add(params Expression[] expressions)
+        internal void Add(Expression other)
         {
-            if (expressions.Length == 2)
+            foreach (Term t1 in other.Terms)
             {
-                print.log("adding expression " + expressions[0] + " and expression " + expressions[1]);
-            }
-
-            return Operand.FilterIdentity(0,
-                (list) =>
+                int j = 0;
+                foreach(Term t2 in Terms)
                 {
-                    Expression ans = new Expression();
-
-                    foreach (Expression e in list)
+                    if (t2.TryAdd(t1))
                     {
-                        //If the expression is a wrapped term (an expression with one term), make sure the term doesn't have any hashed expressions (if it does, distribute everything)
-                        Expression other = e.terms.Count == 1 ? e.terms[0].ToExpression() : e;
-
-                        for (int i = 0; i < other.terms.Count; i++)
+                        if (t2.Coefficient == 0)
                         {
-                            int j = 0;
-                            for (; j < ans.terms.Count; j++)
-                            {
-                                Term t;
-                                if (ans.terms[j].TryAdd(other.terms[i], out t))
-                                {
-                                    ans.terms[j] = t;
-                                    if (ans.terms[j].Coefficient == 0)
-                                    {
-                                        ans.terms.RemoveAt(j--);
-                                    }
-                                    break;
-                                }
-                            }
-
-                            if (j == ans.terms.Count)
-                            {
-                                ans.terms.Add(other.terms[i]);
-                            }
+                            Terms.Remove(t2);
+                            j--;
                         }
+                        break;
                     }
-
-                    return ans;
-                },
-                expressions);
-        }
-
-        public Expression Format(Operand.Form form)
-        {
-            /*if (form.PolynomialForm == Polynomials.Factored)
-            {
-                Term factored;
-
-                if (Term.ToTerm(Copy(), out factored))
-                {
-                    Operand.Instance.PossibleForms[Polynomials.Factored] = true;
-                    return factored.Format(form);
-                }
-            }
-
-            Expression e = terms.Count == 1 ? terms[0].Copy().ToExpression() : this;
-
-            //The answer is just 1 term
-            if (e.terms.Count == 1)
-            {
-                return e.terms[0].Format(form);
-            }
-            else
-            {
-                Operand.Instance.PossibleForms[Polynomials.Expanded] = true;
-
-                Expression ans = new Expression();
-
-                foreach (Term t in e.terms)
-                {
-                    ans = Add(ans, t.Format(form));
+                    j++;
                 }
 
-                return ans;
-            }*/
-
-            if (form.PolynomialForm == Polynomials.Factored)
-            {
-                Term factored;
-                
-                if (Term.ToTerm(Copy(), out factored))
+                if (j == Terms.Count)
                 {
-                    Operand.Instance.PossibleForms[Polynomials.Factored] = true;
-                }
-
-                return factored.Format(form);
-            }
-            else
-            {
-                Expression e = terms.Count == 1 ? terms[0].Copy().ToExpression() : this;
-
-                //The answer is just 1 term
-                if (e.terms.Count == 1)
-                {
-                    return e.terms[0].Format(form);
-                }
-                else
-                {
-                    Operand.Instance.PossibleForms[Polynomials.Expanded] = true;
-
-                    Expression ans = new Expression();
-
-                    foreach (Term t in e.terms)
-                    {
-                        ans = Add(ans, t.Format(form));
-                    }
-
-                    return ans;
+                    Terms.Add(t1);
                 }
             }
         }
 
-        public static Expression Distribute(Expression e1, Expression e2)
+        public static Expression Distribute(Expression e1, Expression e2) => distribute(e1.Terms, e2.Terms);
+        public static Expression Distribute(Expression e1, params Term[] terms) => distribute(e1.Terms, terms);
+        private static Expression distribute(ICollection<Term> e1, ICollection<Term> e2)
         {
-            if (e2.terms.Count > e1.terms.Count)
+            if (e2.Count > e1.Count)
             {
-                return Distribute(e2, e1);
+                return distribute(e2, e1);
             }
 
             Expression ans = new Expression();
             print.log("multiplying expressions " + e1 + " and " + e2);
-            foreach (Term t1 in e1.terms)
+            foreach (Term t1 in e1)
             {
-                for (int i = 0; i < e2.terms.Count; i++)
+                int i = 0;
+                foreach (Term t2 in e2)
                 {
-                    Term t2 = (i == e2.terms.Count - 1) ? t1 : t1.Copy();
-                    //print.log(e);
-                    //t2.Multiply(other.terms[i].Copy());
-                    ans = Add(ans, Term.Multiply(t2, e2.terms[i].Copy()));
+                    Term t1copy = (i == e2.Count - 1) ? t1 : t1.Copy();
+                    t1copy.Multiply(t2.Copy());
+                    ans.Add(new Expression(t1copy));
                 }
             }
-            
+
             return ans;
         }
 
         public Expression Copy()
         {
             Expression e = new Expression();
-            foreach (Term t in terms)
+            foreach (Term t in Terms)
             {
-                e.terms.Add(t.Copy() as Term);
+                e.Terms.Add(t.Copy() as Term);
             }
             return e;
         }
 
-        /*public static int Compare(Expression x, Expression y)
+        public int CompareTo(Expression other)
         {
-            List<Term> xterms = new List<Term>(x.terms);
-            xterms.Sort(new Term.TermComparer());
-
-            List<Term> yterms = new List<Term>(y.terms);
-            yterms.Sort(new Term.TermComparer());
-
-            for (int i = 0; i < System.Math.Max(xterms.Count, yterms.Count); i++)
+            if (Terms.Count != other.Terms.Count)
             {
-                if (i >= xterms.Count)
-                {
-                    return -1;
-                }
-                else if (i >= yterms.Count)
-                {
-                    return 1;
-                }
+                return Terms.Count.CompareTo(other.Terms.Count);
+            }
 
-                int ithTerm = new Term.TermComparer().Compare(xterms[i], yterms[i]);
+            IEnumerator<Term> itr1 = Terms.GetEnumerator();
+            IEnumerator<Term> itr2 = other.Terms.GetEnumerator();
+            while (itr1.MoveNext())
+            {
+                itr2.MoveNext();
 
-                if (ithTerm != 0)
+                int compare = itr1.Current.CompareTo(itr2.Current);
+
+                if (compare != 0)
                 {
-                    return ithTerm;
+                    return compare;
                 }
             }
 
             return 0;
-        }*/
+        }
 
         public override bool Equals(object obj)
         {
-            /*if (!(obj is Expression) && !(obj is Term))
+            print.log("comparing expression " + this + " to " + obj);
+
+            Expression other = obj as Expression ?? (Expression)(obj as Term);
+
+            if (other == null)
             {
                 return false;
             }
 
-            Expression other = obj as Expression ?? obj as Term;
-            
-            if (other.terms.Count != terms.Count)
-            {
-                return false;
-            }
-            //print.log("expression comparing " + this + " to " + other);
-            List<Term> list1 = new List<Term>(terms);
-            list1.Sort(new Term.TermComparer());
-            /*print.log("list1");
-            foreach (Term t in list1)
-                print.log(t);
-            List<Term> list2 = new List<Term>(other.terms);
-            list2.Sort(new Term.TermComparer());
-            /*print.log("list2");
-            foreach (Term t in list2)
-                print.log(t?.ToString() ?? "null");
-            for (int i = 0; i < list1.Count; i++)
-            {
-                //print.log(";lkajsdf;lsd", i, list1[i]?.ToString() ?? "null", list2[i]?.ToString() ?? "null");
-                if (!list1[i].Equals(list2[i]))
-                {
-                    print.log(i + "th terms are not equal: " + list1[i] + " and " + list2[i]);
-                    return false;
-                }
-            }
-
-            return true;*/
-
-            return obj.GetType() == GetType() && obj.GetHashCode() == GetHashCode();
+            return CompareTo(other) == 0;
         }
 
         public override int GetHashCode() => ToString().GetHashCode();
 
         public override string ToString()
         {
-            if (terms.Count == 0)
+            if (Terms.Count == 0)
             {
                 return "0";
             }
 
             string s = "";
-            for (int i = 0; i < terms.Count; i++)
+            int i = 0;
+            foreach (Term t in Terms)
             {
-                string temp = terms[i].ToString();
-                s += (i > 0 && temp[0] != '-') ? "+" + temp : temp;
+                string temp = t.ToString();
+                s += (i++ > 0 && temp[0] != '-') ? "+" + temp : temp;
             }
-            return terms.Count > 1 ? "(" + s + ")" : s;
+            return Terms.Count > 1 ? "(" + s + ")" : s;
+        }
+
+        public IEnumerator<Term> GetEnumerator() => Terms.GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public class Simplifier : ISimplifier<Expression>
+        {
+            public Term.Simplifier ts;
+
+            private Polynomials p;
+
+            public Simplifier(Term.Simplifier ts)
+            {
+                this.ts = ts;
+            }
+
+            public Operand Simplify(Expression e)
+            {
+                Operand ans = new Expression();
+
+                foreach (Term t in e.Terms)
+                {
+                    ans.Add(ts.Simplify(t.Copy()));
+                }
+
+                return ans;
+            }
         }
     }
 }

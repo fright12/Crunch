@@ -1,0 +1,11 @@
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Debug\Crunch.csprojAssemblyReference.cache
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Debug\Crunch.csproj.CoreCompileInputs.cache
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\bin\Debug\Crunch.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\bin\Debug\Crunch.pdb
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\bin\Debug\Crunch.Machine.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\bin\Debug\System.Extensions.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\bin\Debug\System.Extensions.pdb
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\bin\Debug\Crunch.Machine.pdb
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Debug\Crunch.csproj.CopyComplete
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Debug\Crunch.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Debug\Crunch.pdb

@@ -7,8 +7,8 @@
     <ProjectGuid>{65CC8523-2B41-4745-A678-A79BD46477DB}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Crunch.Engine</RootNamespace>
-    <AssemblyName>Crunch.Engine</AssemblyName>
+    <RootNamespace>Crunch</RootNamespace>
+    <AssemblyName>Crunch</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <NuGetPackageImportStamp>
@@ -48,11 +48,13 @@
     <Compile Include="Expression.cs" />
     <Compile Include="Function.cs" />
     <Compile Include="Math.cs" />
+    <Compile Include="MathParsing.cs" />
     <Compile Include="Operand.cs" />
     <Compile Include="print.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Term.cs" />
     <Compile Include="Testing.cs" />
+    <Compile Include="Variable.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\C# Extensions\System.Extensions\System.Extensions.csproj">
