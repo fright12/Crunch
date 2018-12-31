@@ -16,38 +16,34 @@ namespace Crunch.Engine
             { 'π', System.Math.PI }
         };
 
-        private static OrderedTrie<Operator> operations;// = new OrderedTrie<Operator>();
-        private static Func<object, object> negator = (o) => Operand.Multiply(o.ParseOperand(), -1);// o.ParseOperand().Multiply(-1);
+        private static OrderedTrie<Operator> operations;
+        private static Func<object, object> negator = (o) => Operand.Multiply(o.ParseOperand(), -1);
         private static Operator exponentiate = BinaryOperator(Operand.Exponentiate);
 
         static Math()
         {
-            //operations.Add("sin", new UnaryOperator((o) => new Function("sin", System.Math.Sin, o.parse())));
             operations = new OrderedTrie<Operator>(
-                new KeyValuePair<string, Operator>[3]
+                new KeyValuePair<string, Operator>[6]
                 {
                     new KeyValuePair<string, Operator>("sin", Trig("sin", System.Math.Sin, System.Math.Asin)),
                     new KeyValuePair<string, Operator>("cos", Trig("cos", System.Math.Cos, System.Math.Acos)),
-                    new KeyValuePair<string, Operator>("tan", Trig("tan", System.Math.Tan, System.Math.Atan))
+                    new KeyValuePair<string, Operator>("tan", Trig("tan", System.Math.Tan, System.Math.Atan)),
+                    Function.MachineInstructions("log_", 2, (o) => System.Math.Log(o[1], o[0])),
+                    Function.MachineInstructions("log", 1, (o) => System.Math.Log10(o[0])),
+                    Function.MachineInstructions("ln", 1, (o) => System.Math.Log(o[0], System.Math.E))
                 },
                 new KeyValuePair<string, Operator>[1]
                 {
                     new KeyValuePair<string, Operator>("^", exponentiate)
                 },
-                new KeyValuePair<string, Operator>[1]
+                new KeyValuePair<string, Operator>[2]
                 {
-                    new KeyValuePair<string, Operator>("/", BinaryOperator(Operand.Divide))
-                },
-                new KeyValuePair<string, Operator>[1]
-                {
+                    new KeyValuePair<string, Operator>("/", BinaryOperator(Operand.Divide)),
                     new KeyValuePair<string, Operator>("*", BinaryOperator(Operand.Multiply))
                 },
-                new KeyValuePair<string, Operator>[1]
+                new KeyValuePair<string, Operator>[2]
                 {
-                    new KeyValuePair<string, Operator>("-", BinaryOperator(Operand.Subtract))
-                },
-                new KeyValuePair<string, Operator>[1]
-                {
+                    new KeyValuePair<string, Operator>("-", BinaryOperator(Operand.Subtract)),
                     new KeyValuePair<string, Operator>("+", BinaryOperator(Operand.Add))
                 }
                 );
@@ -87,7 +83,6 @@ namespace Crunch.Engine
 
                     Func<Trigonometry, double, double> temp = (trig, d) => normal(trig == Trigonometry.Degrees ? d * System.Math.PI / 180 : d);
 
-                    double p;
                     if (isInverse)
                     {
                         temp = (trig, d) =>
@@ -136,7 +131,7 @@ namespace Crunch.Engine
             if (Testing.Active)
             {
                 ans = Parse.Math(str, operations, negate: negator).ParseOperand();
-                print.log("finished evaluating");
+                print.log("finished evaluating", ans);
             }
             else
             {
@@ -147,34 +142,24 @@ namespace Crunch.Engine
                 catch (Exception e)
                 {
                     print.log("error evaluating", e.Message);
-                    //return new List<Operand>();
                 }
             }
             
             List<Operand> list = new List<Operand>();
 
-            if (ans != null)
+            return ans;
+        }
+
+        internal static Expression[] ParseOperands(this object[] list)
+        {
+            Expression[] ans = new Expression[list.Length];
+            
+            for (int i = 0; i < list.Length; i++)
             {
-                /*foreach (Expression e in ans.AllFormats(substitutions))
-                {
-                    list.Add(e);
-                }*/
-                //list.Add(ans.Format(factored: true, fraction: true, deg: false, knowns: substitutions));
+                ans[i] = list[i].ParseOperand();
             }
 
-            /*substitutions.Clear();
-            if (ans != null)
-            {
-                foreach (Term t in ans.value.Terms)
-                {
-                    foreach (char c in t.Unknowns())
-                    {
-                        substitutions[c] = null;
-                    }
-                }
-            }*/
-
-            return ans;//== null ? null : new Operand(ans);
+            return ans;
         }
 
         private static Expression ParseOperand(this object str)

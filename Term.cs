@@ -47,7 +47,7 @@ namespace Crunch.Engine
             {
                 return false;
             }
-
+            
             value = Coefficient;
             int count = 0;
             foreach(KeyValuePair<double, double> pair in constantKeyValues())
@@ -295,7 +295,7 @@ namespace Crunch.Engine
                 {
                     TrigFunction tf = pair.Key as TrigFunction;
                     double d;
-                    if (tf.Input.IsConstant(out d) || tf.Input.Format(new Operand.Form(Polynomials.Expanded, Numbers.Decimal, form.TrigonometryForm)).IsConstant(out d))
+                    if (tf.Operands[0].IsConstant(out d) || tf.Operands[0].Format(new Operand.Form(Polynomials.Expanded, Numbers.Decimal, form.TrigonometryForm)).IsConstant(out d))
                     {
                         /*bool deg = form.TrigonometryForm == Trigonometry.Degrees;
                         
@@ -324,6 +324,20 @@ namespace Crunch.Engine
 
                         key = new Term(temp);
                         Operand.Instance.HasTrig = true;
+                    }
+                }
+                else if (pair.Key is Function)
+                {
+                    Function f = pair.Key as Function;
+
+                    double[] inputs = new double[f.Operands.Length];
+                    for (int i = 0; f.Operands[i].IsConstant(out inputs[i]) || f.Operands[i].Format(new Operand.Form(Polynomials.Expanded, Numbers.Decimal, form.TrigonometryForm)).IsConstant(out inputs[i]); i++)
+                    {
+                        if (i == inputs.Length - 1)
+                        {
+                            key = new Term(f.Operation(inputs));
+                            break;
+                        }
                     }
                 }
                 else if (pair.Key is char)
@@ -521,12 +535,13 @@ namespace Crunch.Engine
                     }
                     else
                     {
+                        Expression p = power.Copy();
                         if (i == 1)
                         {
                             //power.Multiply(-1);
-                            power = Operand.Multiply(power, -1);
+                            p = Operand.Multiply(power, -1);
                         }
-                        t.multiply(coefficient[i], power);
+                        t.multiply(coefficient[i], p);
                     }
                 }
             }
@@ -545,18 +560,19 @@ namespace Crunch.Engine
         {
             print.log("adding terms " + this + " and " + t);
 
-            bool isLike = nonConstantKeyCount == t.nonConstantKeyCount;
+            bool isLike = members.Count - constantKeyValues().Count == t.members.Count - t.constantKeyValues().Count;
             bool isFraction = false;
 
             foreach (Pair pair in members.KeyValuePairs())
             {
-                if (isLike && !(pair.Key is double && pair.Value.IsConstant()))
+                double d;
+                if (isLike && !(pair.Key is double && pair.Value.IsConstant(out d) && CanExponentiate((double)pair.Key, d)))
                 {
                     isLike = t.members.ContainsKey(pair.Key) && pair.Value.ToString() == t.members[pair.Key].ToString();
                 }
                 isFraction = isFraction || pair.Value.IsNegative;
             }
-
+            
             if (!isLike && !isFraction)
             {
                 foreach (Pair pair in t.members.KeyValuePairs())
@@ -569,13 +585,13 @@ namespace Crunch.Engine
             //Like and fraction -- add constants as fraction
             //Not like and not fraction -- new expression
             //Not like and fraction -- add everything as fraction
-
+            
             if (isLike)
             {
                 double d1 = Numerator * t.Denominator;// safelyMultiply(Numerator, t.Denominator);
                 double d2 = t.Numerator * Denominator;// safelyMultiply(t.Numerator, Denominator);
                 double d3 = Denominator * t.Denominator;// safelyMultiply(Denominator, t.Denominator);
-
+                
                 for (int i = 0; i < 2; i++)
                 {
                     Term temp = i == 0 ? this : t;
@@ -583,7 +599,7 @@ namespace Crunch.Engine
 
                     foreach (KeyValuePair<double, double> pair in collection)
                     {
-                        double d = System.Math.Pow(pair.Key, pair.Value);
+                        double d = System.Math.Pow(pair.Key, System.Math.Abs(pair.Value));
 
                         if (i == 0 ^ pair.Value > 0)
                         {
@@ -605,7 +621,7 @@ namespace Crunch.Engine
                         temp.members.Remove(pair.Key);
                     }
                 }
-
+                
                 setCoefficient(d1 + d2, d3);
                 //setCoefficient(Numerator * t.Denominator + t.Numerator * Denominator, Denominator * t.Denominator);
                 ans = this;
@@ -676,11 +692,15 @@ namespace Crunch.Engine
                 power++;
             }
 
-            if (power > 0)
+            double d = double.Parse(num.Substring(0, num.Length - power));
+
+            //if (d.IsInt() && num.Last() != '.' && power > 0)
+            if (!num.Contains("."))
             {
                 multiply(10, power);
             }
-            return double.Parse(num.Substring(0, num.Length - power));
+
+            return d;
         }
 
         private void setCoefficient(double numerator = double.NaN, double denominator = double.NaN)
