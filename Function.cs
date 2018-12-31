@@ -41,7 +41,6 @@ namespace Crunch.Engine
                 double ans = operation(d);
                 if (double.IsNaN(ans))
                 {
-                    print.log("throwing exception");
                     throw new Exception("NaN answer");
                 }
                 return ans;

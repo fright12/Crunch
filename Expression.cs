@@ -10,6 +10,7 @@ namespace Crunch.Engine
     {
         public IReadOnlyList<Term> Terms => terms;
         private List<Term> terms = new List<Term>();
+        private SortedSet<Term> test = new SortedSet<Term>();
 
         public bool IsNegative => terms.Count == 1 && terms[0].Coefficient < 0;
 
@@ -29,6 +30,10 @@ namespace Crunch.Engine
         {
             foreach(Term t in list)
             {
+                if (t == null)
+                {
+                    throw new Exception("can't add null");
+                }
                 terms.Add(t);
             }
         }
@@ -85,6 +90,38 @@ namespace Crunch.Engine
 
         public Expression Format(Operand.Form form)
         {
+            /*if (form.PolynomialForm == Polynomials.Factored)
+            {
+                Term factored;
+
+                if (Term.ToTerm(Copy(), out factored))
+                {
+                    Operand.Instance.PossibleForms[Polynomials.Factored] = true;
+                    return factored.Format(form);
+                }
+            }
+
+            Expression e = terms.Count == 1 ? terms[0].Copy().ToExpression() : this;
+
+            //The answer is just 1 term
+            if (e.terms.Count == 1)
+            {
+                return e.terms[0].Format(form);
+            }
+            else
+            {
+                Operand.Instance.PossibleForms[Polynomials.Expanded] = true;
+
+                Expression ans = new Expression();
+
+                foreach (Term t in e.terms)
+                {
+                    ans = Add(ans, t.Format(form));
+                }
+
+                return ans;
+            }*/
+
             if (form.PolynomialForm == Polynomials.Factored)
             {
                 Term factored;
@@ -154,7 +191,75 @@ namespace Crunch.Engine
             return e;
         }
 
-        public override bool Equals(object obj) => obj.GetType() == GetType() && obj.GetHashCode() == GetHashCode();
+        /*public static int Compare(Expression x, Expression y)
+        {
+            List<Term> xterms = new List<Term>(x.terms);
+            xterms.Sort(new Term.TermComparer());
+
+            List<Term> yterms = new List<Term>(y.terms);
+            yterms.Sort(new Term.TermComparer());
+
+            for (int i = 0; i < System.Math.Max(xterms.Count, yterms.Count); i++)
+            {
+                if (i >= xterms.Count)
+                {
+                    return -1;
+                }
+                else if (i >= yterms.Count)
+                {
+                    return 1;
+                }
+
+                int ithTerm = new Term.TermComparer().Compare(xterms[i], yterms[i]);
+
+                if (ithTerm != 0)
+                {
+                    return ithTerm;
+                }
+            }
+
+            return 0;
+        }*/
+
+        public override bool Equals(object obj)
+        {
+            /*if (!(obj is Expression) && !(obj is Term))
+            {
+                return false;
+            }
+
+            Expression other = obj as Expression ?? obj as Term;
+            
+            if (other.terms.Count != terms.Count)
+            {
+                return false;
+            }
+            //print.log("expression comparing " + this + " to " + other);
+            List<Term> list1 = new List<Term>(terms);
+            list1.Sort(new Term.TermComparer());
+            /*print.log("list1");
+            foreach (Term t in list1)
+                print.log(t);
+            List<Term> list2 = new List<Term>(other.terms);
+            list2.Sort(new Term.TermComparer());
+            /*print.log("list2");
+            foreach (Term t in list2)
+                print.log(t?.ToString() ?? "null");
+            for (int i = 0; i < list1.Count; i++)
+            {
+                //print.log(";lkajsdf;lsd", i, list1[i]?.ToString() ?? "null", list2[i]?.ToString() ?? "null");
+                if (!list1[i].Equals(list2[i]))
+                {
+                    print.log(i + "th terms are not equal: " + list1[i] + " and " + list2[i]);
+                    return false;
+                }
+            }
+
+            return true;*/
+
+            return obj.GetType() == GetType() && obj.GetHashCode() == GetHashCode();
+        }
+
         public override int GetHashCode() => ToString().GetHashCode();
 
         public override string ToString()

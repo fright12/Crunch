@@ -10,6 +10,7 @@ namespace Crunch.Engine
     public static class Math
     {
         public static int DecimalPlaces = 3;
+        public static double ImplicitLogarithmBase = 10;
         public static Dictionary<char, Operand> KnownVariables = new Dictionary<char, Operand>()
         {
             { 'e', System.Math.E },
@@ -29,7 +30,7 @@ namespace Crunch.Engine
                     new KeyValuePair<string, Operator>("cos", Trig("cos", System.Math.Cos, System.Math.Acos)),
                     new KeyValuePair<string, Operator>("tan", Trig("tan", System.Math.Tan, System.Math.Atan)),
                     Function.MachineInstructions("log_", 2, (o) => System.Math.Log(o[1], o[0])),
-                    Function.MachineInstructions("log", 1, (o) => System.Math.Log10(o[0])),
+                    Function.MachineInstructions("log", 1, (o) => System.Math.Log(o[0], ImplicitLogarithmBase)),
                     Function.MachineInstructions("ln", 1, (o) => System.Math.Log(o[0], System.Math.E))
                 },
                 new KeyValuePair<string, Operator>[1]
@@ -56,13 +57,16 @@ namespace Crunch.Engine
             Func<Node<object>, Node<object>> next = (node) =>
             {
                 isInverse = false;
-
+                
                 if (node.Next.Value == exponentiate)
                 {
                     Expression e = (node + 2).Value.ParseOperand();
+                    
                     if (e != null && e.IsConstant(-1))
+                    //if ((node + 2).IsEqualTo("-") && (node + 3).IsEqualTo("1"))
                     {
                         (node + 2).Value = 1;
+                        
                         isInverse = true;
                     }
 
@@ -137,6 +141,7 @@ namespace Crunch.Engine
             {
                 try
                 {
+                    Testing.Debug = true;
                     ans = Parse.Math(str, operations, negate: negator).ParseOperand();
                 }
                 catch (Exception e)
@@ -163,12 +168,16 @@ namespace Crunch.Engine
         }
 
         private static Expression ParseOperand(this object str)
-        {
+        {            
             while (str is Quantity)
             {
-                str = (str as Quantity).First.Value;
+                str = (str as Quantity).First?.Value;
             }
 
+            if (str == null)
+            {
+                throw new Exception("Incorrectly formatted math");
+            }
             if (str is Expression || str is Term)
             {
                 return str as dynamic;
@@ -179,6 +188,7 @@ namespace Crunch.Engine
             }
 
             string s = str.ToString();
+
             if (s.Substring(0, 1).IsNumber())
             {
                 return new Term(s);

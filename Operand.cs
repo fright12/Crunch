@@ -139,6 +139,7 @@ namespace Crunch.Engine
             }
 
             Unknowns.Clear();
+            print.log("formatting");
             Operand ans = value.Format(f);
 
             //Make sure we found every form we were looking for
@@ -155,5 +156,9 @@ namespace Crunch.Engine
         }
 
         public override string ToString() => value.ToString();
+
+        public override int GetHashCode() => value.GetHashCode();
+
+        public override bool Equals(object obj) => (obj is Operand && value.Equals((obj as Operand).value)) || (obj is Expression && value.Equals(obj as Expression));
     }
 }

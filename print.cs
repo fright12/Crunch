@@ -6,7 +6,7 @@ public class print
 {
     public static void log(params object[] p)
     {
-        if (Crunch.Engine.Testing.Debug)
+        if (Crunch.Engine.Testing.Debug || Crunch.Engine.Testing.ShowWork)
         {
             string s = p[0].ToString();
             for (int i = 1; i < p.Length; i++)

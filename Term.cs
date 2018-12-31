@@ -531,7 +531,7 @@ namespace Crunch.Engine
                             throw new Exception("Imaginary answer");
                         }
 
-                        t.coefficient[(i == 0 ^ exp > 0).ToInt()] = temp;
+                        t.coefficient[(i == 0 ^ exp > 0).ToInt()] = System.Math.Round(temp, 14);
                     }
                     else
                     {
@@ -753,7 +753,7 @@ namespace Crunch.Engine
                         if ((scientificNotation && !d.IsInt() && places != 0) || (System.Math.Abs(d) < 0.1))
                         {
                             d /= System.Math.Pow(10, places);
-                            multiply(ten, places);
+                            multiply(ten, places * (i * -2 + 1));
                         }
                     }
 
@@ -782,7 +782,7 @@ namespace Crunch.Engine
             {
                 if (members.ContainsKey(coefficient[i]))
                 {
-                    members[coefficient[i]] = Operand.Add(members[coefficient[i]], 1);
+                    members[coefficient[i]] = Operand.Add(members[coefficient[i]], i * -2 + 1);
                     coefficient[i] = 1;
                 }
             }
@@ -860,6 +860,130 @@ namespace Crunch.Engine
         }
 
         /******************************* ADDITION *******************************/
+
+        /*private bool IsLike(Term other)
+        {
+            if (other.members.Count != members.Count)
+            {
+                return false;
+            }
+
+            foreach (Pair pair in other.members.KeyValuePairs())
+            {
+                Expression power;
+                if (!members.TryGetValue(pair.Key, out power) || !power.Equals(pair.Value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override int GetHashCode() => ToString().GetHashCode();
+
+        public override bool Equals(object obj)
+        {
+            //print.log("term comparing " + this + " to " + obj);
+            if (obj is Expression)
+            {
+                return (obj as Expression).Equals(this);
+            }
+
+            Term other = obj as Term;
+
+            if (other == null)
+            {
+                return false;
+            }
+
+            string c1 = Coefficient.ToString();
+            string c2 = other.Coefficient.ToString();
+            int i = 0;
+            for (; i < System.Math.Min(c1.Length, c2.Length) - 1; i++)
+            {
+                if (c1[i] != c2[i])
+                {
+                    string check = c1[i] == '0' ? c1 : c2;
+
+                    for (int j = i; j < check.Length; j++)
+                    {
+                        if (check[j] != '0' && check[j] != '.')
+                        {
+                            return false;
+                        }
+                    }
+
+                    i--;
+                    break;
+                }
+            }
+
+            return System.Math.Abs(c1[i] - c2[i]) <= 1 && IsLike(other);
+        }
+
+        private static int Compare(Tuple<char, Expression> first, Tuple<char, Expression> second)
+        {
+            int power = Expression.Compare(first.Item2, second.Item2);
+
+            if (power != 0)
+            {
+                return power;
+            }
+
+            return first.Item1.CompareTo(second.Item1);
+        }
+
+        private Tuple<char, Expression> MaxVariable()
+        {
+            Tuple<char, Expression> max = null;
+
+            foreach(char c in members.EnumerateKeys<char>())
+            {
+                Tuple<char, Expression> t = new Tuple<char, Expression>(c, members[c]);
+                if (max == null || Compare(t, max) == 1)
+                {
+                    max = t;
+                }
+            }
+
+            return max;
+        }
+
+        internal class TermComparer : IComparer, IComparer<Term>
+        {
+            public int Compare(Term x, Term y)
+            {
+                var xmax = x.MaxVariable();
+                var ymax = y.MaxVariable();
+
+                if (xmax == null ^ ymax == null)
+                {
+                    return ymax == null ? 1 : -1;
+                }
+
+                int variables = xmax == null ? 0 : Term.Compare(xmax, ymax);
+                
+                if (variables == 0)
+                {
+                    return x.Coefficient.CompareTo(y.Coefficient);
+                }
+                else
+                {
+                    return variables;
+                }
+            }
+
+            public int Compare(object x, object y)
+            {
+                if (!(x is Term) || !(y is Term))
+                {
+                    throw new Exception("Can't compare");
+                }
+
+                return Compare(x as Term, y as Term);
+            }
+        }*/
 
         public override string ToString()
         {
