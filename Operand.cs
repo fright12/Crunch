@@ -5,28 +5,6 @@ using System.Text;
 
 namespace Crunch
 {
-    /*public class RestrictedHashSet<T>
-    {
-        private HashSet<T> hashset;
-
-        public RestrictedHashSet() => hashset = new HashSet<T>();
-        public RestrictedHashSet(params T[] items) : this()
-        {
-            foreach (T t in items)
-            {
-                hashset.Add(t);
-            }
-        }
-
-        public int Count => hashset.Count;
-        public bool Contains(T item) => hashset.Contains(item);
-        public HashSet<T>.Enumerator GetEnumerator() => hashset.GetEnumerator();
-
-        internal bool Add(T item) => hashset.Add(item);
-        internal bool Remove(T item) => hashset.Remove(item);
-        internal void Clear() => hashset.Clear();
-    }*/
-
     public class Form : IEnumerable
     {
         public Polynomials PolynomialForm;

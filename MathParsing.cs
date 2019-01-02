@@ -147,25 +147,25 @@ namespace Crunch
         {
             Operand ans = null;
 
-            if (Testing.Active)
+            /*if (Testing.Active)
             {
                 ans = Parse.Math(str, operations, negate: negator).ParseOperand();
                 print.log("finished evaluating", ans);
             }
             else
+            {*/
+            try
             {
-                try
-                {
-                    bool backup = Testing.Debug;
-                    Testing.Debug = false;
-                    ans = Parse.Math(str, operations, negate: negator).ParseOperand();
-                    Testing.Debug = backup;
-                }
-                catch (Exception e)
-                {
-                    print.log("error evaluating", e.Message);
-                }
+                //bool backup = Testing.Debug;
+                //Testing.Debug = false;
+                ans = Parse.Math(str, operations, negate: negator).ParseOperand();
+                //Testing.Debug = backup;
             }
+            catch (Exception e)
+            {
+                print.log("error evaluating", e.Message);
+            }
+            //}
             
             List<Operand> list = new List<Operand>();
 

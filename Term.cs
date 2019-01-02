@@ -919,7 +919,7 @@ namespace Crunch
                 return false;
             }
 
-            if (System.Math.Round(Coefficient, 3) != System.Math.Round(other.Coefficient, 3))
+            if (System.Math.Round(Coefficient, 3).ToString() != System.Math.Round(other.Coefficient, 3).ToString())
             {
                 return false;
             }
