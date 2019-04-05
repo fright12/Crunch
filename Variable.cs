@@ -25,24 +25,30 @@ namespace Crunch
 
         internal class Simplifier : ISimplifier<char>
         {
+            public HashSet<char> Unknowns = new HashSet<char>();
             public bool HasExactForm = false;
 
-            public HashSet<char> Unknowns = new HashSet<char>();
             private Dictionary<char, Operand> Subsitutions;
-
+            private HashSet<char> Simplifying;
             private Operand.Simplifier os;
             private Numbers n;
 
             public Simplifier(Operand.Simplifier os, Dictionary<char, Operand> substitutions, Numbers n)
             {
                 Subsitutions = substitutions ?? new Dictionary<char, Operand>();
+                Simplifying = new HashSet<char>();
                 this.os = os;
                 this.n = n;
             }
 
             public Operand Simplify(char c)
             {
-                if (Knowns.ContainsKey(c))
+                if (Simplifying.Contains(c))
+                {
+                    Simplifying.Clear();
+                    System.Diagnostics.Debug.WriteLine("Warning: circular dependency detected, " + c + " depends on itself");
+                }
+                else if (Knowns.ContainsKey(c))
                 {
                     HasExactForm = true;
 
@@ -57,7 +63,14 @@ namespace Crunch
 
                     if (Subsitutions != null && Subsitutions.ContainsKey(c))
                     {
-                        return os.Simplify(Subsitutions[c]);
+                        Simplifying.Add(c);
+                        Operand ans = os.Simplify(Subsitutions[c]);
+
+                        if (Simplifying.Count != 0)
+                        {
+                            Simplifying.Remove(c);
+                            return ans;
+                        }
                     }
                 }
 
