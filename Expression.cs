@@ -116,6 +116,7 @@ namespace Crunch
 
         public int CompareTo(Expression other)
         {
+            //print.log("comparing expression " + this + " to " + other);
             if (Terms.Count != other.Terms.Count)
             {
                 return Terms.Count.CompareTo(other.Terms.Count);
@@ -126,29 +127,27 @@ namespace Crunch
             while (itr1.MoveNext())
             {
                 itr2.MoveNext();
-
+                
                 int compare = itr1.Current.CompareTo(itr2.Current);
-
+                
                 if (compare != 0)
                 {
                     return compare;
                 }
             }
-
+            
             return 0;
         }
 
         public override bool Equals(object obj)
         {
-            print.log("comparing expression " + this + " to " + obj);
-
             Expression other = obj as Expression ?? (Expression)(obj as Term);
 
             if (other == null)
             {
                 return false;
             }
-
+            
             return CompareTo(other) == 0;
         }
 

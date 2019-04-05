@@ -7,29 +7,69 @@ using Crunch.Machine;
 
 namespace Crunch
 {
-    public static partial class Math
+    public class Reader : Machine.Reader
     {
-        private static OrderedTrie<Operator> operations;
+        private static Func<LinkedListNode<object>, LinkedListNode<object>> NextOperand = (node) =>
+        {
+            //Next node is a minus sign
+            if (node.Next != null && node.Next.Value == subtract)
+            {
+                //Delete the negative sign
+                node.List.Remove(node.Next);
+                
+                //Negate what's after
+                node.Next.Value = negator(node.Next.Value);
+            }
+
+            return node.Next;
+        };
+
+        private static Func<LinkedListNode<object>, LinkedListNode<object>> PreviousOrZero = (node) =>
+        {
+            if (node.Previous == null)
+            {
+                node.List.AddBefore(node, 0);
+            }
+
+            return node.Previous;
+        };
+
+        //internal static Reader Instance => instance ?? (instance = new Reader());
+        //private static Reader instance;
+
+        //protected override Trie<Operator> Operations => operations;
+        //private Trie<Operator> operations;
+        
         private static Func<object, object> negator = (o) => //Operand.Multiply(o.ParseOperand(), -1);
         {
-            Operand temp = o.ParseOperand();
+            Operand temp = ParseOperand(o);
             temp.Multiply(-1);
             return temp;
         };
         //private static Operator exponentiate = BinaryOperator(Operand.Exponentiate);
         private static Operator exponentiate = BinaryOperator((o1, o2) => o1.Exponentiate(o2));
-
-        static Math()
+        private static Operator subtract = new Operator((o) =>
         {
-            operations = new OrderedTrie<Operator>(
+            Operand ans = ParseOperand(o[0]);
+            ans.Subtract(ParseOperand(o[1]));
+            return ans;
+        }, PreviousOrZero, NextOperand);
+
+        public Reader(params KeyValuePair<string, Operator>[][] data) : base(data) { }
+        private static Reader Instance;
+
+        static Reader()
+        {
+            Instance = new Reader(
                 new KeyValuePair<string, Operator>[]
                 {
                     new KeyValuePair<string, Operator>("sin", Trig("sin", System.Math.Sin, System.Math.Asin)),
                     new KeyValuePair<string, Operator>("cos", Trig("cos", System.Math.Cos, System.Math.Acos)),
                     new KeyValuePair<string, Operator>("tan", Trig("tan", System.Math.Tan, System.Math.Atan)),
                     Function.MachineInstructions("log_", 2, (o) => System.Math.Log(o[1], o[0])),
-                    Function.MachineInstructions("log", 1, (o) => System.Math.Log(o[0], ImplicitLogarithmBase)),
-                    Function.MachineInstructions("ln", 1, (o) => System.Math.Log(o[0], System.Math.E))
+                    Function.MachineInstructions("log", 1, (o) => System.Math.Log(o[0], Math.ImplicitLogarithmBase)),
+                    Function.MachineInstructions("ln", 1, (o) => System.Math.Log(o[0], System.Math.E)),
+                    Function.MachineInstructions("sqrt", 1, (o) => System.Math.Pow(o[0], 0.5))
                 },
                 new KeyValuePair<string, Operator>[]
                 {
@@ -42,19 +82,9 @@ namespace Crunch
                 },
                 new KeyValuePair<string, Operator>[]
                 {
-                    new KeyValuePair<string, Operator>("-", BinaryOperator((o1, o2) => o1.Subtract(o2))),
+                    new KeyValuePair<string, Operator>("-", subtract),
                     new KeyValuePair<string, Operator>("+", BinaryOperator((o1, o2) => o1.Add(o2)))
                 }
-                /*new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("/", BinaryOperator(Operand.Divide)),
-                    new KeyValuePair<string, Operator>("*", BinaryOperator(Operand.Multiply))
-                },
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("-", BinaryOperator(Operand.Subtract)),
-                    new KeyValuePair<string, Operator>("+", BinaryOperator(Operand.Add))
-                }*/
                 );
         }
 
@@ -62,23 +92,23 @@ namespace Crunch
 
         private static Operator Trig(string name, Func<double, double> normal, Func<double, double> inverse)
         {
-            Func<Node<object>, Node<object>> next = (node) =>
+            Func<LinkedListNode<object>, LinkedListNode<object>> next = (node) =>
             {
                 isInverse = false;
                 
                 if (node.Next.Value == exponentiate)
                 {
-                    Operand e = (node + 2).Value.ParseOperand();
+                    Operand e = ParseOperand(node.Next.Next.Value);
                     
                     if (e != null && e.IsConstant(-1))
                     //if ((node + 2).IsEqualTo("-") && (node + 3).IsEqualTo("1"))
                     {
-                        (node + 2).Value = 1;
+                        node.Next.Next.Value = 1;
                         
                         isInverse = true;
                     }
 
-                    return node + 3;
+                    return node.Next.Next.Next;
                 }
                 else
                 {
@@ -108,87 +138,37 @@ namespace Crunch
                         };
                     }
 
-                    return new TrigFunction(name + (isInverse ? "^-1" : ""), o[0].ParseOperand(), temp);
+                    return new TrigFunction(name + (isInverse ? "^-1" : ""), ParseOperand(o[0]), temp);
                 },
                 next);
         }
 
-        /*private static double trig(Func<double, double> f, Expression e)
-        {
-            Term t = ((Term)o).AllFormats().Last() as Term;
-            if (Term.IsConstant(t))
-            {
-                return f(t.Numerator / t.Denominator * System.Math.PI / 180);
-            }
-            else
-            {
-                throw new Exception("Cannot operate on non-constant value " + t);
-            }
-        }*/
-
         private static Operator BinaryOperator(Action<Operand, Operand> operation) => new BinaryOperator((o1, o2) =>
         {
-            Operand o = o1.ParseOperand();
-            operation(o, o2.ParseOperand());
-            return o;
-        });
-
-        private static Operator BinaryOperator(Func<Operand, Operand, Expression> f) => new BinaryOperator((o1, o2) => f(o1.ParseOperand(), o2.ParseOperand()));
-
-        //private static Operator UnaryOperator(Func<Operand, Operand> f) => new UnaryOperator((o) => f(o.ParseOperand()));
+            Operand ans = ParseOperand(o1);
+            operation(ans, ParseOperand(o2));
+            return ans;
+        }, (node) => node.Previous, NextOperand);
 
         public static Operand Evaluate(string str)
         {
-            var temp = new Dictionary<char, Operand>();
-            return Evaluate(str, ref temp);
-        }
-
-        public static Operand Evaluate(string str, ref Dictionary<char, Operand> substitutions)
-        {
-            Operand ans = null;
-
-            /*if (Testing.Active)
-            {
-                ans = Parse.Math(str, operations, negate: negator).ParseOperand();
-                print.log("finished evaluating", ans);
-            }
-            else
-            {*/
+            print.log("evaluating " + str);
             try
             {
-                //bool backup = Testing.Debug;
-                //Testing.Debug = false;
-                ans = Parse.Math(str, operations, negate: negator).ParseOperand();
-                //Testing.Debug = backup;
+                return ParseOperand(Instance.Parse(str));
             }
             catch (Exception e)
             {
                 print.log("error evaluating", e.Message);
+                return null;
             }
-            //}
-            
-            List<Operand> list = new List<Operand>();
-
-            return ans;
         }
 
-        internal static Operand[] ParseOperands(this object[] list)
+        internal static Operand ParseOperand(object str)
         {
-            Operand[] ans = new Operand[list.Length];
-            
-            for (int i = 0; i < list.Length; i++)
+            while (str is LinkedList<object>)
             {
-                ans[i] = list[i].ParseOperand();
-            }
-
-            return ans;
-        }
-
-        private static Operand ParseOperand(this object str)
-        {
-            while (str is Quantity)
-            {
-                str = (str as Quantity).First?.Value;
+                str = (str as LinkedList<object>).First?.Value;
             }
             
             if (str == null)
@@ -212,7 +192,7 @@ namespace Crunch
             }
             else
             {
-                if (s.Length > 1 || operations.Contains(s).ToBool())
+                if (s.Length > 1 || str is Operator) // Instance.Operations.Contains(s).ToBool())
                 {
                     throw new Exception("Cannot operate on value " + str + " of type " + str.GetType());
                 }

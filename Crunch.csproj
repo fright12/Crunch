@@ -48,12 +48,11 @@
     <Compile Include="Expression.cs" />
     <Compile Include="Function.cs" />
     <Compile Include="Math.cs" />
-    <Compile Include="MathParsing.cs" />
+    <Compile Include="Reader.cs" />
     <Compile Include="Operand.cs" />
     <Compile Include="print.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Term.cs" />
-    <Compile Include="Testing.cs" />
     <Compile Include="Variable.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -61,7 +60,7 @@
       <Project>{f2e94f0b-5217-44a2-8747-a28c1d8c7e4b}</Project>
       <Name>System.Extensions</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Crunch.Machine\Crunch.Machine.csproj">
+    <ProjectReference Include="..\Parse\Crunch.Machine.csproj">
       <Project>{7a80fcd4-bf7d-42c2-82f1-fac60323e4f4}</Project>
       <Name>Crunch.Machine</Name>
     </ProjectReference>

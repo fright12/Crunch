@@ -8,6 +8,8 @@ namespace Crunch
 {
     public static partial class Math
     {
+        public static bool Testing = false;
+
         public static int DecimalPlaces = 3;
         public static double ImplicitLogarithmBase = 10;
 

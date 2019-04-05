@@ -9,3 +9,14 @@ C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Release\Crunch.cspro
 C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Release\Crunch.csproj.CopyComplete
 C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Release\Crunch.dll
 C:\Users\Flint\Documents\Calculator Stuff\Crunch.Engine\obj\Release\Crunch.pdb
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Release\Crunch.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Release\Crunch.pdb
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Release\Crunch.Machine.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Release\System.Extensions.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Release\System.Extensions.pdb
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Release\Crunch.Machine.pdb
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Release\Crunch.csprojAssemblyReference.cache
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Release\Crunch.csproj.CoreCompileInputs.cache
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Release\Crunch.csproj.CopyComplete
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Release\Crunch.dll
+C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Release\Crunch.pdb

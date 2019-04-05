@@ -35,7 +35,7 @@ namespace Crunch
 
             public Simplifier(Operand.Simplifier os, Dictionary<char, Operand> substitutions, Numbers n)
             {
-                Subsitutions = substitutions;
+                Subsitutions = substitutions ?? new Dictionary<char, Operand>();
                 this.os = os;
                 this.n = n;
             }

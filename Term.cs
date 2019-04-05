@@ -579,10 +579,10 @@ namespace Crunch
                         }
                     }
                 }
-
+                
                 numerator[0].Numerator = numerator[0].safelyMultiply(Numerator, t.Denominator);
                 numerator[1].Numerator = numerator[1].safelyMultiply(Denominator, t.Numerator);
-                denominator.Numerator = denominator.safelyMultiply(Denominator, t.Denominator);
+                denominator.Denominator = denominator.safelyMultiply(Denominator, t.Denominator);
 
                 Operand o = numerator[0];
                 o.Add(numerator[1]);
@@ -876,10 +876,9 @@ namespace Crunch
 
         public int CompareTo(Term other)
         {
-            print.log("comparing term " + this + " to term " + other);
             IEnumerator<KeyValuePair<Operand, object>> itr1 = SortByExponent().GetEnumerator();
             IEnumerator<KeyValuePair<Operand, object>> itr2 = other.SortByExponent().GetEnumerator();
-
+            
             do
             {
                 bool b1 = itr1.MoveNext();
@@ -897,7 +896,7 @@ namespace Crunch
                 {
                     return 1;
                 }
-
+                
                 int compare = Compare(itr1.Current, itr2.Current);// itr1.Current.Key.CompareTo(itr2.Current.Key);
                 
                 if (compare != 0)
@@ -910,7 +909,7 @@ namespace Crunch
 
         public override bool Equals(object obj)
         {
-            print.log("comparing term " + this + " to " + obj);
+            //print.log("comparing term " + this + " to " + obj);
 
             Term other = obj as Term ?? (Term)(obj as Expression);
 
@@ -918,8 +917,8 @@ namespace Crunch
             {
                 return false;
             }
-
-            if (System.Math.Round(Coefficient, 3).ToString() != System.Math.Round(other.Coefficient, 3).ToString())
+            
+            if (System.Math.Round(Coefficient, 2).ToString() != System.Math.Round(other.Coefficient, 2).ToString())
             {
                 return false;
             }
@@ -939,8 +938,12 @@ namespace Crunch
 
             //Sort all of the variables into numerator and denominator
             string[] variables = new string[2] { "", "" };
-            foreach (Pair pair in members.KeyValuePairs())
+            IEnumerator<KeyValuePair<Operand, object>> itr = SortByExponent().GetEnumerator();
+            //foreach (Pair pair in members.KeyValuePairs())
+            while(itr.MoveNext())
             {
+                Pair pair = new Pair(itr.Current.Value, itr.Current.Key);
+
                 string exponent = pair.Value.ToString();
                 //Constant values (ie 10^24) should be displayed before any variables
                 bool front = pair.Key is double && pair.Value.IsConstant();

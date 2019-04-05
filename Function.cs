@@ -48,10 +48,11 @@ namespace Crunch
                 if (skip || o.IsConstant(out constant))
                 {
                     double temp = System.Math.Round(tf.Operation(Units, constant), 14);
-                    if (double.IsNaN(temp))
+                    ValidateAnswer(temp);
+                    /*if (double.IsNaN(temp))
                     {
                         throw new Exception("Invalid input for trig function");
-                    }
+                    }*/
 
                     HasTrig = true;
                     return temp;
@@ -85,26 +86,50 @@ namespace Crunch
             Operation = (d) =>
             {
                 double ans = operation(d);
-                if (double.IsNaN(ans))
-                {
-                    throw new Exception("NaN answer");
-                }
+                ValidateAnswer(ans);
                 return ans;
             };
             Operands = operands;
         }
+
+        protected static void ValidateAnswer(double ans)
+        {
+            if (double.IsNaN(ans) || double.IsInfinity(ans))
+            {
+                throw new Exception("Invalid answer");
+            }
+        }
         
         public static KeyValuePair<string, Machine.Operator> MachineInstructions(string name, int parameterCount, Func<double[], double> operation)
         {
-            Func<Machine.Node<object>, Machine.Node<object>>[] targets = new Func<Machine.Node<object>, Machine.Node<object>>[parameterCount];
+            Func<LinkedListNode<object>, LinkedListNode<object>>[] targets = new Func<LinkedListNode<object>, LinkedListNode<object>>[parameterCount];
 
             for (int i = 0; i < parameterCount; i++)
             {
                 int j = i + 1;
-                targets[i] = (n) => n + j;
+                targets[i] = (n) =>
+                {
+                    for (int k = 0; k < j; k++)
+                    {
+                        n = n.Next;
+                    }
+                    return n;
+                };
             }
 
-            return new KeyValuePair<string, Machine.Operator>(name, new Machine.Operator((o) => new Function(name, operation, o.ParseOperands()), targets));
+            return new KeyValuePair<string, Machine.Operator>(name, new Machine.Operator((o) => new Function(name, operation, ParseOperands(o)), targets));
+        }
+
+        private static Operand[] ParseOperands(object[] list)
+        {
+            Operand[] ans = new Operand[list.Length];
+
+            for (int i = 0; i < list.Length; i++)
+            {
+                ans[i] = Reader.ParseOperand(list[i]);
+            }
+
+            return ans;
         }
 
         public override string ToString()

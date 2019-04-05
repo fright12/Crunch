@@ -97,7 +97,12 @@ namespace Crunch
             double constant;
             return IsConstant(out constant) && constant == d;
         }
-        public bool IsConstant(out double v) { v = double.NaN; return (Value as dynamic).IsConstant(out v); }
+        public bool IsConstant(out double v)
+        {
+            v = double.NaN;
+            return (Value as Term)?.IsConstant(out v) ?? (Value as Expression).IsConstant(out v);
+            //return (Value as dynamic).IsConstant(out v);
+        }
 
         public bool HasTrig { get; private set; }
 
@@ -106,7 +111,7 @@ namespace Crunch
             { Numbers.Decimal, true }
         };
         public bool HasForm(Enum e) => PossibleForms.ContainsKey(e) && PossibleForms[e];
-        //Mess
+        //End of Mess
 
 
 
@@ -209,15 +214,17 @@ namespace Crunch
 
         public int CompareTo(Operand other) => Value is Term ? (Value as Term).CompareTo(other.TermForm) : (Value as Expression).CompareTo(other.ExpressionForm);
 
-        internal class Simplifier : ISimplifier<Operand>
+        public class Simplifier : ISimplifier<Operand>
         {
+            //public Dictionary<char, Operand> Knowns => ts.vs.Subsitutions;
+
             public bool CanFactor = false;
             public bool CanExpand = false;
 
-            public Term.Simplifier ts;
+            internal Term.Simplifier ts;
             private Polynomials p;
 
-            public Simplifier(Term.Simplifier ts, Polynomials p)
+            internal Simplifier(Term.Simplifier ts, Polynomials p)
             {
                 this.ts = ts;
                 this.p = p;
