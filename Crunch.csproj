@@ -48,9 +48,9 @@
     <Compile Include="Expression.cs" />
     <Compile Include="Function.cs" />
     <Compile Include="Math.cs" />
+    <Compile Include="print.cs" />
     <Compile Include="Reader.cs" />
     <Compile Include="Operand.cs" />
-    <Compile Include="print.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Term.cs" />
     <Compile Include="Variable.cs" />

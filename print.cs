@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-public class print
+/*public class Print
 {
-    public static void log(params object[] p)
+    public static void Log(params object[] p)
     {
         if (!Crunch.Math.Testing)
         {
@@ -16,4 +16,4 @@ public class print
             s += ", " + p[i];
         System.Diagnostics.Debug.WriteLine(s);
     }
-}
+}*/

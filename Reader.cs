@@ -152,14 +152,14 @@ namespace Crunch
 
         public static Operand Evaluate(string str)
         {
-            print.log("evaluating " + str);
+            Print.Log("evaluating " + str);
             try
             {
                 return ParseOperand(Instance.Parse(str));
             }
             catch (Exception e)
             {
-                print.log("error evaluating", e.Message);
+                Print.Log("error evaluating", e.Message);
                 return null;
             }
         }

@@ -64,7 +64,7 @@ namespace Crunch
         {
             os = new Simplifier(p, n, t, dict);
 
-            print.log("formatting");
+            Print.Log("formatting");
             Operand ans = os.Simplify(this);
 
             if (os.CanFactor)
@@ -188,7 +188,7 @@ namespace Crunch
                 }
             }
 
-            print.log("formatting");
+            Print.Log("formatting");
             Operand ans = Simplify(polynomials, numbers, trig, knowns);
 
             //Make sure we found every form we were looking for

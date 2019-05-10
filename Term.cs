@@ -273,7 +273,7 @@ namespace Crunch
 
         internal void Multiply(Term other)
         {
-            print.log("multiplying terms " + this + " and " + other);
+            Print.Log("multiplying terms " + this + " and " + other);
 
             double constant;
             if (IsConstant(out constant) && constant == 1)
@@ -304,7 +304,7 @@ namespace Crunch
 
         internal void Exponentiate(Operand exponent)
         {
-            print.log("exponentiating " + this, exponent);
+            Print.Log("exponentiating " + this, exponent);
 
             double baseConstant;
             double expConstant;
@@ -478,7 +478,7 @@ namespace Crunch
 
         public bool TryAdd(Term t)
         {
-            print.log("adding terms " + this + " and " + t);
+            Print.Log("adding terms " + this + " and " + t);
 
             double constant;
             if (IsConstant(out constant) && constant == 0)
@@ -1031,7 +1031,7 @@ namespace Crunch
 
             public Operand Simplify(Term t)
             {
-                print.log("simplifying " + t);
+                Print.Log("simplifying " + t);
                 Term b = new Term(1);
                 b.coefficient[0] = t.coefficient[0];
                 b.coefficient[1] = t.coefficient[1];
@@ -1059,7 +1059,7 @@ namespace Crunch
                     a.Numerator = a.coefficient[0] / d;
                 }
 
-                print.log("simplified " + t + " to " + ans);
+                Print.Log("simplified " + t + " to " + ans);
                 return ans;
             }
             

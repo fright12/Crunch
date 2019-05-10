@@ -89,7 +89,7 @@ namespace Crunch
             }
 
             Expression ans = new Expression();
-            print.log("multiplying expressions " + e1 + " and " + e2);
+            Print.Log("multiplying expressions " + e1 + " and " + e2);
             foreach (Term t1 in e1)
             {
                 int i = 0;

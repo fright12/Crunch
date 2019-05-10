@@ -61,7 +61,7 @@ namespace Crunch
                 {
                     Unknowns.Add(c);
 
-                    if (Subsitutions != null && Subsitutions.ContainsKey(c))
+                    if (Subsitutions != null && Subsitutions.ContainsKey(c) && Subsitutions[c] != null)
                     {
                         Simplifying.Add(c);
                         Operand ans = os.Simplify(Subsitutions[c]);
