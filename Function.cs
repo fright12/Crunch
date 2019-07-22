@@ -99,17 +99,46 @@ namespace Crunch
                 throw new Exception("Invalid answer");
             }
         }
-        
-        public static KeyValuePair<string, Machine.Operator> MachineInstructions(string name, int parameterCount, Func<double[], double> operation)
+
+#if DEBUG
+        public static KeyValuePair<string, Parse.Operator<Operand>> MachineInstructions(string name, int parameterCount, Func<double[], double> operation)
         {
-            Func<LinkedListNode<object>, LinkedListNode<object>>[] targets = new Func<LinkedListNode<object>, LinkedListNode<object>>[parameterCount];
+            Action<Parse.IEditEnumerator<object>>[] targets = new Action<Parse.IEditEnumerator<object>>[parameterCount];
 
             for (int i = 0; i < parameterCount; i++)
             {
                 int j = i + 1;
                 targets[i] = (n) =>
                 {
-                    for (int k = 0; k < j; k++)
+                    n.Move(j);
+                };
+            }
+
+            return new KeyValuePair<string, Parse.Operator<Operand>>(name, new Parse.Operator<Operand>((o) => new Operand(new Term(new Function(name, operation, o))), targets));
+        }
+
+        private static Operand[] ParseOperands(Operand[] list)
+        {
+            Operand[] ans = new Operand[list.Length];
+
+            for (int i = 0; i < list.Length; i++)
+            {
+                ans[i] = list[i];
+            }
+
+            return ans;
+        }
+#else
+        public static KeyValuePair<string, Machine.Operator> MachineInstructions(string name, int parameterCount, Func<double[], double> operation)
+        {
+            Func<LinkedListNode<object>, LinkedListNode<object>>[] targets = new Func<LinkedListNode<object>, LinkedListNode<object>>[parameterCount];
+
+            for (int i = 0; i<parameterCount; i++)
+            {
+                int j = i + 1;
+        targets[i] = (n) =>
+                {
+                    for (int k = 0; k<j; k++)
                     {
                         n = n.Next;
                     }
@@ -117,9 +146,9 @@ namespace Crunch
                 };
             }
 
-            return new KeyValuePair<string, Machine.Operator>(name, new Machine.Operator((o) => new Function(name, operation, ParseOperands(o)), targets));
+            return new KeyValuePair<string, Machine.Operator>(name, new Machine.Operator((o) => new Operand(new Term(new Function(name, operation, ParseOperands(o)))), targets));
         }
-
+        
         private static Operand[] ParseOperands(object[] list)
         {
             Operand[] ans = new Operand[list.Length];
@@ -131,6 +160,7 @@ namespace Crunch
 
             return ans;
         }
+#endif
 
         public override string ToString()
         {
