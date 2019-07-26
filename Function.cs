@@ -8,18 +8,20 @@ namespace Crunch
 {
     internal class TrigFunction : Function, IComparable<TrigFunction>
     {
-        new public Func<Trigonometry, double, double> Operation;
-        //public Func<double, double> Inverse;
+        public Func<double, double> Regular;
+        public Func<double, double> Inverse;
 
-        public TrigFunction(string name, Operand input, Func<Trigonometry, double, double> operation) : base(name, input)
+        public bool IsInverse = false;
+
+        public TrigFunction(string name, Operand input, Func<double, double> regular, Func<double, double> inverse) : base(name, input)
         {
-            Operation = operation;
-            //Inverse = inverse;
+            Regular = regular;
+            Inverse = inverse;
         }
 
         public int CompareTo(TrigFunction other) => base.CompareTo(other);
 
-        internal class Simplifier : ISimplifier<TrigFunction>
+        new internal class Simplifier : ISimplifier<TrigFunction>
         {
             public bool HasTrig = false;
 
@@ -47,19 +49,25 @@ namespace Crunch
 
                 if (skip || o.IsConstant(out constant))
                 {
-                    double temp = System.Math.Round(tf.Operation(Units, constant), 14);
-                    ValidateAnswer(temp);
-                    /*if (double.IsNaN(temp))
+                    if (!tf.IsInverse && Units == Trigonometry.Degrees)
                     {
-                        throw new Exception("Invalid input for trig function");
-                    }*/
+                        constant *= System.Math.PI / 180;
+                    }
+
+                    double temp = System.Math.Round(tf.IsInverse ? tf.Inverse(constant) : tf.Regular(constant), 14);
+                    ValidateAnswer(temp);
+
+                    if (tf.IsInverse && Units == Trigonometry.Degrees)
+                    {
+                        constant *= 180 / System.Math.PI;
+                    }
 
                     HasTrig = true;
                     return temp;
                 }
                 else
                 {
-                    return new Term(new TrigFunction(tf.Name, o, tf.Operation));
+                    return new Term(new TrigFunction(tf.Name, o, tf.Regular, tf.Inverse));
                 }
             }
         }
@@ -100,35 +108,7 @@ namespace Crunch
             }
         }
 
-#if DEBUG
-        public static KeyValuePair<string, Parse.Operator<Operand>> MachineInstructions(string name, int parameterCount, Func<double[], double> operation)
-        {
-            Action<Parse.IEditEnumerator<object>>[] targets = new Action<Parse.IEditEnumerator<object>>[parameterCount];
-
-            for (int i = 0; i < parameterCount; i++)
-            {
-                int j = i + 1;
-                targets[i] = (n) =>
-                {
-                    n.Move(j);
-                };
-            }
-
-            return new KeyValuePair<string, Parse.Operator<Operand>>(name, new Parse.Operator<Operand>((o) => new Operand(new Term(new Function(name, operation, o))), targets));
-        }
-
-        private static Operand[] ParseOperands(Operand[] list)
-        {
-            Operand[] ans = new Operand[list.Length];
-
-            for (int i = 0; i < list.Length; i++)
-            {
-                ans[i] = list[i];
-            }
-
-            return ans;
-        }
-#else
+#if !DEBUG
         public static KeyValuePair<string, Machine.Operator> MachineInstructions(string name, int parameterCount, Func<double[], double> operation)
         {
             Func<LinkedListNode<object>, LinkedListNode<object>>[] targets = new Func<LinkedListNode<object>, LinkedListNode<object>>[parameterCount];

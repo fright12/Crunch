@@ -217,22 +217,13 @@ namespace Crunch
 
     public class Reader : CharReader<Operand>
     {
-        private static readonly Operator Subtract = new BinaryOperator((o1, o2) => o1.Subtract(o2), prev: PreviousOrZero, juxtapose: true);
-        /*private static readonly Operator Subtract = new BinaryOperator((o1, o2) =>
-        {
-            o1.Subtract(o2);
-            return o1;
-        }, PreviousOrZero, (node) => NextOperand(node, true));*/
-        private static readonly Operator Exponentiate = new BinaryOperator((o1, o2) => o1.Exponentiate(o2)) { Order = ProcessingOrder.RightToLeft };
-
-        private static Reader Instance;
-
-        static Reader()
+        /*static Reader()
         {
             Instance = new Reader(
                 new KeyValuePair<string, Operator>[]
                 {
                     new KeyValuePair<string, Operator>("sin", Trig("sin", System.Math.Sin, System.Math.Asin)),
+                    //new KeyValuePair<string, Operator>("sin^(-1)", new UnaryOperator<Operand>((o) => new Term(new TrigFunction("sin^-1", o, (trig, d) => System.Math.Asin(d))), (itr) => itr.MoveNext())),
                     new KeyValuePair<string, Operator>("cos", Trig("cos", System.Math.Cos, System.Math.Acos)),
                     new KeyValuePair<string, Operator>("tan", Trig("tan", System.Math.Tan, System.Math.Atan)),
                     Function.MachineInstructions("log_", 2, (o) => System.Math.Log(o[1], o[0])),
@@ -242,7 +233,7 @@ namespace Crunch
                 },
                 new KeyValuePair<string, Operator>[]
                 {
-                    new KeyValuePair<string, Operator>("^", Exponentiate)
+                    new KeyValuePair<string, Operator>("^", new BinaryOperator((o1, o2) => o1.Exponentiate(o2)) { Order = ProcessingOrder.RightToLeft })
                 },
                 new KeyValuePair<string, Operator>[]
                 {
@@ -255,28 +246,22 @@ namespace Crunch
                     new KeyValuePair<string, Operator>("+", new BinaryOperator((o1, o2) => o1.Add(o2), juxtapose: true))
                 }
                 );
-        }
+        }*/
 
-        public Reader(params KeyValuePair<string, Operator>[][] data) : base(data) { }
+        public Reader(params IDictionary<string, Operator>[] data) : base(data) { }
 
-        public static Operand Evaluate(string str)
+        protected override Operand ParseOperand(string operand) => ParseOperand1(operand);
+        protected static Operand ParseOperand1(string operand)
         {
-            Print.Log("evaluating " + str);
-            //return Instance.Parse(str);
-            try
+            if (operand.Length == 1 && !Machine.StringClassification.IsNumber(operand))
             {
-                return Instance.Parse(str);
+                return new Term(operand[0]);
             }
-            catch (Exception e)
+            else
             {
-                Print.Log("error evaluating", e.Message);
-                return null;
+                return new Term(operand);
             }
-        }
-
-        protected override IEnumerable<Operand> ParseOperand(string operand)
-        {
-            string number = "";
+            /*string number = "";
 
             for (int i = 0; i < operand.Length; i++)
             {
@@ -301,28 +286,128 @@ namespace Crunch
                         yield return new Term(c);
                     }
                 }
-            }
+            }*/
         }
 
-        protected override Operand Juxtapose(IEditEnumerable<object> expression) => Juxtapose(expression.GetEnumerator(), 1);
+        protected override IEnumerable<string> Segment(IEnumerable<char> operand)
+        {
+            IEnumerator<char> itr = operand.GetEnumerator();
+            string number = "";
 
-        protected static Operand Juxtapose(IEditEnumerator<object> start, int move)
+            while (itr.MoveNext())
+            {
+                if (Machine.StringClassification.IsNumber(itr.Current.ToString()))
+                {
+                    number += itr.Current;
+                }
+                else
+                {
+                    if (number.Length > 0)
+                    {
+                        yield return number;
+                        number = "";
+                    }
+
+                    yield return itr.Current.ToString();
+                }
+            }
+
+            if (number.Length > 0)
+            {
+                yield return number;
+            }
+
+            /*int i = 0;
+
+            //for (int i = 0; i < operand.Length; i++)
+            foreach(char c in operand)
+            {
+                //char c = operand[i];
+
+                bool isNumber = Crunch.Machine.StringClassification.IsNumber(c.ToString());
+                if (isNumber)
+                {
+                    number += c;
+                }
+
+                if (!isNumber || i + 1 == operand.Length)
+                {
+                    if (number.Length > 0)
+                    {
+                        yield return new Term(number);
+                        number = "";
+                    }
+
+                    if (!isNumber)
+                    {
+                        yield return new Term(c);
+                    }
+                }
+            }*/
+        }
+
+        //protected override Operand Juxtapose(IEditEnumerator<object> start) => Juxtapose(start, 1);
+        protected override Operand Juxtapose(IEnumerable<Operand> expression) => Juxtapose1(expression);
+
+        protected static Operand Juxtapose1(IEnumerable<Operand> expression)
         {
             Operand ans = 1;
 
-            while (start.Move(move) && start.Current is Operand)
+            foreach (Operand o in expression)
             {
-                ans.Multiply((Operand)start.Current);
-                start.Move(-move);
-                start.Remove(move);
+                ans.Multiply(o);
             }
 
             return ans;
+
+            //return Juxtapose3(Juxtapose2(start, direction));
+            /*Operand ans = 1;
+            Print.Log("juxtaposing", start.Current);
+            while (start.Move(direction) && start.Current is Operand)
+            {
+                Print.Log("juxtaposing", start.Current);
+                ans.Multiply(start.Current as Operand ?? ParseOperand((string)start.Current));
+                start.Move(-direction);
+                start.Remove(direction);
+            }
+
+            return ans;*/
+        }
+
+        private static IEnumerable<Operand> Juxtapose(IEditEnumerator<object> start, int direction)
+        {
+            Print.Log("starting pointing at " + start.Current, direction);
+            while (start.Move(direction) && start.Current is Operand)
+            {
+                /*Operand o;
+                if (start.Current is Operand)
+                {
+                    o = start.Current as Operand;
+                }
+                else
+                {
+                    string current = (string)start.Current;
+
+                    //if ((direction == 1 && current == ")") || (direction == -1 && current == "(") || current == "+" || current == "-")
+                    
+                    {
+                        break;
+                    }
+
+                    o = ParseOperand1(current);
+                }*/
+
+                yield return start.Current as Operand;
+
+                start.Move(-direction);
+                start.Remove(direction);
+            }
+            Print.Log("ending pointing at " + start.Current, direction);
         }
 
         private static bool isInverse;
 
-        private static Operator Trig(string name, Func<double, double> normal, Func<double, double> inverse)
+        public static Operator Trig(string name, Func<double, double> normal, Func<double, double> inverse)
         {
             Action<IEditEnumerator<object>> next = (itr) =>
             {
@@ -331,7 +416,7 @@ namespace Crunch
                 if (itr.MoveNext() && itr.Current.Equals("^"))
                 {
                     itr.MoveNext();
-                    Operand e = (Operand)itr.Current;
+                    Operand e = itr.Current as Operand ?? ParseOperand1((string)itr.Current);
 
                     if (e != null && e.IsConstant(-1))
                     //if ((node + 2).IsEqualTo("-") && (node + 3).IsEqualTo("1"))
@@ -348,104 +433,43 @@ namespace Crunch
                 }
             };
 
-            return new Operator(
+            return new UnaryOperator<Operand>(
                 (o) =>
                 {
                     //Expression e = o[0].ParseOperand();
                     //double d;
                     //return e.IsConstant(out d) ? new Term(f(d)) : new Term(new Function(name, e, null));
 
-                    Func<Trigonometry, double, double> temp = (trig, d) => normal(trig == Trigonometry.Degrees ? d * System.Math.PI / 180 : d);
+                    Func<double, double> temp = (d) => normal(d);// normal(trig == Trigonometry.Degrees ? d * System.Math.PI / 180 : d);
 
                     if (isInverse)
                     {
-                        temp = (trig, d) =>
+                        temp = (d) =>
                         {
                             double value = inverse(d);
                             if (double.IsNaN(value))
                             {
 
                             }
-                            return value * (trig == Trigonometry.Degrees ? 180 / System.Math.PI : 1);
+                            return value;// * (trig == Trigonometry.Degrees ? 180 / System.Math.PI : 1);
                         };
                     }
 
-                    return new Operand(new Term(new TrigFunction(name + (isInverse ? "^-1" : ""), o[0], temp)));
+                    return new Term(new TrigFunction(name + (isInverse ? "^-1" : ""), o, normal, inverse));
                 },
-                ProcessingOrder.RightToLeft,
                 next);
         }
 
-        /*private static Operator BinaryOperator(Action<Operand, Operand> operation, ProcessingOrder order = ProcessingOrder.LeftToRight, bool addition = false) => new BinaryOperator((o1, o2) =>
+        public class BinaryOperator : BinaryOperator<Operand>
         {
-            Operand ans = o1;
-            operation(ans, o2);
-            return ans;
-        }, (node) => PrevOperand(node, addition), (node) => NextOperand(node, addition), order);*/
-
-        private static void NextOperand(IEditEnumerator<object> itr, bool juxtapose)
-        {
-            //Next node is a minus sign
-            if (itr.MoveNext() && itr.Current.Equals("-"))
-            {
-                //Delete the negative sign
-                itr.MoveNext();
-
-                //Negate what's after
-                Operand next = (Operand)itr.Current;
-                next.Multiply(-1);
-
-                itr.Add(1, next);
-                itr.MoveNext();
-
-                itr.Remove(-1);
-                itr.Remove(-1);
-            }
-
-            if (juxtapose)
-            {
-                itr.MovePrev();
-                itr.Add(-1, Juxtapose(itr, 1));
-                itr.Move(-1);
-            }
-        }
-
-        private static void PrevOperand(IEditEnumerator<object> itr, bool juxtapose)
-        {
-            itr.MovePrev();
-
-            if (juxtapose)
-            {
-                itr.MoveNext();
-                itr.Add(1, Juxtapose(itr, -1));
-                itr.Move(1);
-            }
-        }
-
-        private static void PreviousOrZero(IEditEnumerator<object> itr)
-        {
-            bool needsZero = !itr.MovePrev();
-            itr.MoveNext();
-
-            if (needsZero)
-            {
-                itr.Add(-1, new Operand(new Term(0)));
-            }
-
-            PrevOperand(itr, true);
-        }
-
-        private class BinaryOperator : BinaryOperator<Operand>
-        {
-            //public BinaryOperator1(Func<Operand, Operand, Operand> operation) : base(operation, PrevOperand, NextOperand) { }
-
-            public BinaryOperator(Action<Operand, Operand> operation, Action<IEditEnumerator<object>> prev = null, Action<IEditEnumerator<object>> next = null, bool juxtapose = false) : base((o1, o2) =>
-            {
-                operation(o1, o2);
-                return o1;
-            },
-            (itr) => Move(prev ?? Prev, itr, juxtapose ? -1 : 0),
-            (itr) => Move(next ?? Next, itr, juxtapose ? 1 : 0))
+            public BinaryOperator(Action<Operand, Operand> operation, Action<IEditEnumerator<object>> prev = null, Action<IEditEnumerator<object>> next = null, bool juxtapose = false) : base(
+                (o1, o2) =>
+                {
+                    operation(o1, o2);
+                    return o1;
+                },
+                (itr) => Move(prev ?? Prev, itr, juxtapose ? -1 : 0),
+                (itr) => Move(next ?? Next, itr, juxtapose ? 1 : 0))
             { }
 
             private static void Move(Action<IEditEnumerator<object>> mover, IEditEnumerator<object> itr, int juxtapose)
@@ -454,7 +478,12 @@ namespace Crunch
 
                 if (juxtapose != 0)
                 {
-                    Juxtapose(itr, juxtapose);
+                    // itr is pointing at the thing we ultimately want to return - we need to move off it to make sure it's juxtaposed too
+                    itr.Move(-juxtapose);
+                    // Juxtapose will delete the thing we were just on - add the result where it was
+                    itr.Add(-juxtapose, Juxtapose1(Juxtapose(itr, juxtapose)));
+                    // Move back to where we were (which is now the juxtaposed value)
+                    itr.Move(-juxtapose);
                 }
             }
 
@@ -462,29 +491,20 @@ namespace Crunch
 
             public static void Next(IEditEnumerator<object> itr)
             {
-                //Next node is a minus sign
+                // Is the next thing a minus sign?
                 if (itr.MoveNext() && itr.Current.Equals("-"))
                 {
-                    //Delete the negative sign
+                    // Move off the negative sign (to the thing after)
                     itr.MoveNext();
+                    // Delete the negative sign
+                    itr.Remove(-1);
 
-                    //Negate what's after
-                    Operand next = (Operand)itr.Current;
+                    // Negate the value after
+                    Operand next = (Operand)itr.Current; //itr.Current as Operand ?? ParseOperand1((string)itr.Current);
                     next.Multiply(-1);
-
-                    itr.Add(1, next);
-                    itr.MoveNext();
-
-                    itr.Remove(-1);
-                    itr.Remove(-1);
+                    // Replace with the negated value
+                    itr.Add(0, next);
                 }
-            }
-
-            private static void Juxtapose(IEditEnumerator<object> itr, int direction)
-            {
-                itr.Move(-direction);
-                itr.Add(-direction, Reader.Juxtapose(itr, direction));
-                itr.Move(-direction);
             }
         }
     }
