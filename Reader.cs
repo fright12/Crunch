@@ -217,77 +217,9 @@ namespace Crunch
 
     public class Reader : CharReader<Operand>
     {
-        /*static Reader()
-        {
-            Instance = new Reader(
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("sin", Trig("sin", System.Math.Sin, System.Math.Asin)),
-                    //new KeyValuePair<string, Operator>("sin^(-1)", new UnaryOperator<Operand>((o) => new Term(new TrigFunction("sin^-1", o, (trig, d) => System.Math.Asin(d))), (itr) => itr.MoveNext())),
-                    new KeyValuePair<string, Operator>("cos", Trig("cos", System.Math.Cos, System.Math.Acos)),
-                    new KeyValuePair<string, Operator>("tan", Trig("tan", System.Math.Tan, System.Math.Atan)),
-                    Function.MachineInstructions("log_", 2, (o) => System.Math.Log(o[1], o[0])),
-                    Function.MachineInstructions("log", 1, (o) => System.Math.Log(o[0], Math.ImplicitLogarithmBase)),
-                    Function.MachineInstructions("ln", 1, (o) => System.Math.Log(o[0], System.Math.E)),
-                    Function.MachineInstructions("sqrt", 1, (o) => System.Math.Pow(o[0], 0.5))
-                },
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("^", new BinaryOperator((o1, o2) => o1.Exponentiate(o2)) { Order = ProcessingOrder.RightToLeft })
-                },
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("/", new BinaryOperator((o1, o2) => o1.Divide(o2))),
-                    new KeyValuePair<string, Operator>("*", new BinaryOperator((o1, o2) => o1.Multiply(o2)))
-                },
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("-", Subtract),
-                    new KeyValuePair<string, Operator>("+", new BinaryOperator((o1, o2) => o1.Add(o2), juxtapose: true))
-                }
-                );
-        }*/
+        public Reader(Trie<Tuple<Operator, int>> operations) : base(operations) { }
 
-        public Reader(params IDictionary<string, Operator>[] data) : base(data) { }
-
-        protected override Operand ParseOperand(string operand) => ParseOperand1(operand);
-        protected static Operand ParseOperand1(string operand)
-        {
-            if (operand.Length == 1 && !Machine.StringClassification.IsNumber(operand))
-            {
-                return new Term(operand[0]);
-            }
-            else
-            {
-                return new Term(operand);
-            }
-            /*string number = "";
-
-            for (int i = 0; i < operand.Length; i++)
-            {
-                char c = operand[i];
-
-                bool isNumber = Crunch.Machine.StringClassification.IsNumber(c.ToString());
-                if (isNumber)
-                {
-                    number += c;
-                }
-
-                if (!isNumber || i + 1 == operand.Length)
-                {
-                    if (number.Length > 0)
-                    {
-                        yield return new Term(number);
-                        number = "";
-                    }
-
-                    if (!isNumber)
-                    {
-                        yield return new Term(c);
-                    }
-                }
-            }*/
-        }
+        protected override Operand ParseOperand(string operand) => Term.Parse(operand);
 
         protected override IEnumerable<string> Segment(IEnumerable<char> operand)
         {
@@ -316,40 +248,9 @@ namespace Crunch
             {
                 yield return number;
             }
-
-            /*int i = 0;
-
-            //for (int i = 0; i < operand.Length; i++)
-            foreach(char c in operand)
-            {
-                //char c = operand[i];
-
-                bool isNumber = Crunch.Machine.StringClassification.IsNumber(c.ToString());
-                if (isNumber)
-                {
-                    number += c;
-                }
-
-                if (!isNumber || i + 1 == operand.Length)
-                {
-                    if (number.Length > 0)
-                    {
-                        yield return new Term(number);
-                        number = "";
-                    }
-
-                    if (!isNumber)
-                    {
-                        yield return new Term(c);
-                    }
-                }
-            }*/
         }
 
-        //protected override Operand Juxtapose(IEditEnumerator<object> start) => Juxtapose(start, 1);
-        protected override Operand Juxtapose(IEnumerable<Operand> expression) => Juxtapose1(expression);
-
-        protected static Operand Juxtapose1(IEnumerable<Operand> expression)
+        protected override Operand Juxtapose(IEnumerable<Operand> expression)
         {
             Operand ans = 1;
 
@@ -359,64 +260,84 @@ namespace Crunch
             }
 
             return ans;
-
-            //return Juxtapose3(Juxtapose2(start, direction));
-            /*Operand ans = 1;
-            Print.Log("juxtaposing", start.Current);
-            while (start.Move(direction) && start.Current is Operand)
-            {
-                Print.Log("juxtaposing", start.Current);
-                ans.Multiply(start.Current as Operand ?? ParseOperand((string)start.Current));
-                start.Move(-direction);
-                start.Remove(direction);
-            }
-
-            return ans;*/
         }
 
-        private static IEnumerable<Operand> Juxtapose(IEditEnumerator<object> start, int direction)
+        private static bool Sequence(IEnumerator<object> itr, params Func<object, bool>[] comparers)
         {
-            Print.Log("starting pointing at " + start.Current, direction);
-            while (start.Move(direction) && start.Current is Operand)
+            int i = 0;
+            while (i < comparers.Length && itr.MoveNext())
             {
-                /*Operand o;
-                if (start.Current is Operand)
+                if (!comparers[i++](itr.Current))
                 {
-                    o = start.Current as Operand;
+                    return false;
                 }
-                else
-                {
-                    string current = (string)start.Current;
-
-                    //if ((direction == 1 && current == ")") || (direction == -1 && current == "(") || current == "+" || current == "-")
-                    
-                    {
-                        break;
-                    }
-
-                    o = ParseOperand1(current);
-                }*/
-
-                yield return start.Current as Operand;
-
-                start.Move(-direction);
-                start.Remove(direction);
             }
-            Print.Log("ending pointing at " + start.Current, direction);
-        }
 
-        private static bool isInverse;
+            return true;
+        }
 
         public static Operator Trig(string name, Func<double, double> normal, Func<double, double> inverse)
         {
+            //TrigFunction trig = new TrigFunction(name + (isInverse ? "^-1" : ""), null, normal, inverse);
+            UnaryOperator<Operand> trig = new UnaryOperator<Operand>(null, null);
+
             Action<IEditEnumerator<object>> next = (itr) =>
             {
-                isInverse = false;
+                trig.Operate = (o) => new Term(new TrigFunction(name, o[0], normal, inverse));
 
                 if (itr.MoveNext() && itr.Current.Equals("^"))
                 {
-                    itr.MoveNext();
-                    Operand e = itr.Current as Operand ?? ParseOperand1((string)itr.Current);
+                    int remove = 0;
+
+                    if (Sequence(itr.Copy(), (o) => o.Equals("-"), (o) => o.Equals("1"), (o) => Math.MathReader.Classify(o) == Member.Opening))
+                    {
+                        remove = 3;
+                    }
+                    else if (Sequence(itr.Copy(), (o) => Math.MathReader.Classify(o) == Member.Opening, (o) => o.Equals("-"), (o) => o.Equals("1"), (o) => Math.MathReader.Classify(o) == Member.Closing))
+                    {
+                        remove = 5;
+                    }
+
+                    if (remove == 0)
+                    {
+                        itr.MoveNext();
+                        itr.Add(0, Math.MathReader.ParseOperand(itr));
+                        itr.MoveNext();
+                    }
+                    else
+                    {
+                        itr.Move(remove);
+                        for (int i = 0; i < remove; i++)
+                        {
+                            itr.Remove(-1);
+                        }
+
+                        trig.Operate = (o) => new Term(new TrigFunction("arc" + name, o[0], normal, inverse) { IsInverse = true });
+                    }
+
+                    /*IEditEnumerator<object> temp = itr.Copy();
+                    string nextFew = "";
+                    bool isMinus1 = false;
+                    if (temp.MoveNext() && Math.MathReader.Classify(itr.Current) == Member.Opening)
+                    {
+
+                    }
+                    else if (temp.Current.Equals("-"))
+                    {
+                        Print.Log("a");
+                        if (temp.MoveNext() && temp.Current.Equals("1"))
+                        {
+                            Print.Log("b");
+                            if (temp.MoveNext() && Math.MathReader.Classify(temp.Current) == Member.Opening)
+                            {
+                                Print.Log("c");
+                                trig.Operate = (o) => new Term(new TrigFunction("arc" + name, o[0], normal, inverse) { IsInverse = true });
+                                temp.Remove(-2);
+                            }
+                        }
+                    }*/
+
+                    /*Operand e = Math.MathReader.ParseOperand(itr);
 
                     if (e != null && e.IsConstant(-1))
                     //if ((node + 2).IsEqualTo("-") && (node + 3).IsEqualTo("1"))
@@ -427,13 +348,14 @@ namespace Crunch
                         itr.MoveNext();
 
                         isInverse = true;
-                    }
-
-                    itr.MoveNext();
+                    }*/
                 }
             };
 
-            return new UnaryOperator<Operand>(
+            trig.Targets = new Action<IEditEnumerator<object>>[] { next };
+            return trig;
+
+            /*return new UnaryOperator<Operand>(
                 (o) =>
                 {
                     //Expression e = o[0].ParseOperand();
@@ -455,9 +377,10 @@ namespace Crunch
                         };
                     }
 
+                    //trig.Operands = new Operand[] { o };
                     return new Term(new TrigFunction(name + (isInverse ? "^-1" : ""), o, normal, inverse));
                 },
-                next);
+                next);*/
         }
 
         public class BinaryOperator : BinaryOperator<Operand>
@@ -481,7 +404,7 @@ namespace Crunch
                     // itr is pointing at the thing we ultimately want to return - we need to move off it to make sure it's juxtaposed too
                     itr.Move(-juxtapose);
                     // Juxtapose will delete the thing we were just on - add the result where it was
-                    itr.Add(-juxtapose, Juxtapose1(Juxtapose(itr, juxtapose)));
+                    itr.Add(-juxtapose, Math.MathReader.Juxtapose(Math.MathReader.CollectOperands(itr, (ProcessingOrder)juxtapose)));
                     // Move back to where we were (which is now the juxtaposed value)
                     itr.Move(-juxtapose);
                 }
@@ -500,7 +423,7 @@ namespace Crunch
                     itr.Remove(-1);
 
                     // Negate the value after
-                    Operand next = (Operand)itr.Current; //itr.Current as Operand ?? ParseOperand1((string)itr.Current);
+                    Operand next = Math.MathReader.ParseOperand(itr);
                     next.Multiply(-1);
                     // Replace with the negated value
                     itr.Add(0, next);

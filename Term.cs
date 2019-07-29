@@ -96,6 +96,18 @@ namespace Crunch
 
         public static implicit operator Operand(Term t) => new Operand(t);
 
+        public static Term Parse(string s)
+        {
+            if (s.Length == 1 && !Machine.StringClassification.IsNumber(s))
+            {
+                return new Term(s[0]);
+            }
+            else
+            {
+                return new Term(s);
+            }
+        }
+
         public Expression ToExpression()
         {
             if (members.TypeCount(typeof(Expression)) > 0)

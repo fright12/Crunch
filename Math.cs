@@ -9,6 +9,7 @@ using Parse;
 namespace Crunch
 {
     using Operator = Operator<Operand>;
+    using Value = Tuple<Operator<Operand>, int>;
 
     public static partial class Math
     {
@@ -19,13 +20,13 @@ namespace Crunch
             {
                 // Get the thing before
                 itr.MovePrev();
-                //object previous = itr.Current;
-                Operand previous = itr.Current as Operand;
+                object previous = itr.Current;
                 itr.MoveNext();
 
-                // If it's null, then it's not an Operand (not something that can be operated on)
-                if (previous == null)
-                //if (previous == null || previous as string == "(" || previous as string == ")" || (previous is string && MathReader.Operations.ContainsKey(previous as string)))
+                // Add a 0 before if the thing before is not something we can operate on
+                // If it's null or not an operand, then we can't operate on it, UNLESS
+                //  it's a closing parenthesis (because we can parse that to get an operand)
+                if (previous == null || (MathReader.Classify(previous) != Member.Operand && MathReader.Classify(previous) != Member.Closing))
                 {
                     itr.Add(-1, new Operand(0));
                 }
@@ -34,38 +35,38 @@ namespace Crunch
             },
             juxtapose: true);
 
-        private static readonly Reader MathReader = new Reader(
-            new Dictionary<string, Operator>
+        internal static readonly Reader MathReader = new Reader(
+            new System.Extensions.Trie<Tuple<Operator<Operand>, int>>
             {
-                { "sin", Reader.Trig("sin", System.Math.Sin, System.Math.Asin) },
+                { "sin", new Value(Reader.Trig("sin", System.Math.Sin, System.Math.Asin), 0) },
                 //{ "sin^(-1)", Function("sin^-1", 1, (o) => System.Math.Asin(o[0])) },
                 //{ "sin^-1", Function.MachineInstructions("sin^-1", 1, (o) => System.Math.Asin(o[0])).Value },
-                { "cos", Reader.Trig("cos", System.Math.Cos, System.Math.Acos) },
-                { "tan", Reader.Trig("tan", System.Math.Tan, System.Math.Atan) },
-                { "log_", Function("log_", 2, (o) => System.Math.Log(o[1], o[0])) },
-                { "log", Function("log", 1, (o) => System.Math.Log(o[0], ImplicitLogarithmBase)) },
-                { "ln", Function("ln", 1, (o) => System.Math.Log(o[0], System.Math.E)) },
-                { "sqrt", Function("sqrt", 1, (o) => System.Math.Pow(o[0], 0.5)) }
-            },
+                { "cos", new Value(Reader.Trig("cos", System.Math.Cos, System.Math.Acos), 0) },
+                { "tan", new Value(Reader.Trig("tan", System.Math.Tan, System.Math.Atan), 0) },
+                { "log_", new Value(Function("log_", 2, (o) => System.Math.Log(o[1], o[0])), 0) },
+                { "log", new Value(Function("log", 1, (o) => System.Math.Log(o[0], ImplicitLogarithmBase)), 0) },
+                { "ln", new Value(Function("ln", 1, (o) => System.Math.Log(o[0], System.Math.E)), 0) },
+                { "sqrt", new Value(Function("sqrt", 1, (o) => System.Math.Pow(o[0], 0.5)), 0) },
+            /*},
             new Dictionary<string, Operator>
-            {
-                { "^", new Reader.BinaryOperator((o1, o2) => o1.Exponentiate(o2)) { Order = ProcessingOrder.RightToLeft } }
-            },
+            {*/
+                { "^", new Value(new Reader.BinaryOperator((o1, o2) => o1.Exponentiate(o2)) { Order = ProcessingOrder.RightToLeft }, 1) },
+            /*},
             new Dictionary<string, Operator>
-            {
-                { "/", new Reader.BinaryOperator((o1, o2) => o1.Divide(o2)) },
-                { "*", new Reader.BinaryOperator((o1, o2) => o1.Multiply(o2)) }
-            },
+            {*/
+                { "/", new Value(new Reader.BinaryOperator((o1, o2) => o1.Divide(o2)), 2) },
+                { "*", new Value(new Reader.BinaryOperator((o1, o2) => o1.Multiply(o2)), 2) },
+            /*},
             new Dictionary<string, Operator>
-            {
-                { "-", SUBTRACT },
-                { "+", new Reader.BinaryOperator((o1, o2) => o1.Add(o2), juxtapose: true) }
+            {*/
+                { "-", new Value(SUBTRACT, 3) },
+                { "+", new Value(new Reader.BinaryOperator((o1, o2) => o1.Add(o2), juxtapose: true), 3) }
             }
             );
 
         public static Operator<Operand> Function(string name, int parameterCount, Func<double[], double> operation)
         {
-            Action<Parse.IEditEnumerator<object>>[] targets = new Action<Parse.IEditEnumerator<object>>[parameterCount];
+            Action<IEditEnumerator<object>>[] targets = new Action<IEditEnumerator<object>>[parameterCount];
 
             for (int i = 0; i < parameterCount; i++)
             {
@@ -87,7 +88,7 @@ namespace Crunch
         {
             Print.Log("evaluating " + str);
 #if DEBUG
-            return MathReader.Parse(str);
+            //return MathReader.Parse(str);
 #endif
             try
             {

@@ -56,10 +56,10 @@ namespace Crunch
 
                     double temp = System.Math.Round(tf.IsInverse ? tf.Inverse(constant) : tf.Regular(constant), 14);
                     ValidateAnswer(temp);
-
+                    
                     if (tf.IsInverse && Units == Trigonometry.Degrees)
                     {
-                        constant *= 180 / System.Math.PI;
+                        temp *= 180 / System.Math.PI;
                     }
 
                     HasTrig = true;
