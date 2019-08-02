@@ -243,7 +243,7 @@ namespace Crunch
                     yield return itr.Current.ToString();
                 }
             }
-
+            
             if (number.Length > 0)
             {
                 yield return number;
@@ -278,12 +278,11 @@ namespace Crunch
 
         public static Operator Trig(string name, Func<double, double> normal, Func<double, double> inverse)
         {
-            //TrigFunction trig = new TrigFunction(name + (isInverse ? "^-1" : ""), null, normal, inverse);
             UnaryOperator<Operand> trig = new UnaryOperator<Operand>(null, null);
 
             Action<IEditEnumerator<object>> next = (itr) =>
             {
-                trig.Operate = (o) => new Term(new TrigFunction(name, o[0], normal, inverse));
+                trig.Operate = (o) => new Term(new TrigFunction(name, o[0], (d, units) => normal(d * (units == Trigonometry.Degrees ? System.Math.PI / 180 : 1))));
 
                 if (itr.MoveNext() && itr.Current.Equals("^"))
                 {
@@ -312,75 +311,13 @@ namespace Crunch
                             itr.Remove(-1);
                         }
 
-                        trig.Operate = (o) => new Term(new TrigFunction("arc" + name, o[0], normal, inverse) { IsInverse = true });
+                        trig.Operate = (o) => new Term(new TrigFunction("arc" + name, o[0], (d, units) => inverse(d) * (units == Trigonometry.Degrees ? 180 / System.Math.PI : 1)));
                     }
-
-                    /*IEditEnumerator<object> temp = itr.Copy();
-                    string nextFew = "";
-                    bool isMinus1 = false;
-                    if (temp.MoveNext() && Math.MathReader.Classify(itr.Current) == Member.Opening)
-                    {
-
-                    }
-                    else if (temp.Current.Equals("-"))
-                    {
-                        Print.Log("a");
-                        if (temp.MoveNext() && temp.Current.Equals("1"))
-                        {
-                            Print.Log("b");
-                            if (temp.MoveNext() && Math.MathReader.Classify(temp.Current) == Member.Opening)
-                            {
-                                Print.Log("c");
-                                trig.Operate = (o) => new Term(new TrigFunction("arc" + name, o[0], normal, inverse) { IsInverse = true });
-                                temp.Remove(-2);
-                            }
-                        }
-                    }*/
-
-                    /*Operand e = Math.MathReader.ParseOperand(itr);
-
-                    if (e != null && e.IsConstant(-1))
-                    //if ((node + 2).IsEqualTo("-") && (node + 3).IsEqualTo("1"))
-                    {
-                        itr.Move(-1);
-                        itr.Remove(1);
-                        itr.Add(1, new Operand(new Term(1)));
-                        itr.MoveNext();
-
-                        isInverse = true;
-                    }*/
                 }
             };
 
             trig.Targets = new Action<IEditEnumerator<object>>[] { next };
             return trig;
-
-            /*return new UnaryOperator<Operand>(
-                (o) =>
-                {
-                    //Expression e = o[0].ParseOperand();
-                    //double d;
-                    //return e.IsConstant(out d) ? new Term(f(d)) : new Term(new Function(name, e, null));
-
-                    Func<double, double> temp = (d) => normal(d);// normal(trig == Trigonometry.Degrees ? d * System.Math.PI / 180 : d);
-
-                    if (isInverse)
-                    {
-                        temp = (d) =>
-                        {
-                            double value = inverse(d);
-                            if (double.IsNaN(value))
-                            {
-
-                            }
-                            return value;// * (trig == Trigonometry.Degrees ? 180 / System.Math.PI : 1);
-                        };
-                    }
-
-                    //trig.Operands = new Operand[] { o };
-                    return new Term(new TrigFunction(name + (isInverse ? "^-1" : ""), o, normal, inverse));
-                },
-                next);*/
         }
 
         public class BinaryOperator : BinaryOperator<Operand>

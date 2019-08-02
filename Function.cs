@@ -8,15 +8,15 @@ namespace Crunch
 {
     internal class TrigFunction : Function, IComparable<TrigFunction>
     {
+        new public Func<double, Trigonometry, double> Operation;
         public Func<double, double> Regular;
         public Func<double, double> Inverse;
 
         public bool IsInverse = false;
 
-        public TrigFunction(string name, Operand input, Func<double, double> regular, Func<double, double> inverse) : base(name, input)
+        public TrigFunction(string name, Operand input, Func<double, Trigonometry, double> operation) : base(name, input)
         {
-            Regular = regular;
-            Inverse = inverse;
+            Operation = operation;
         }
 
         public int CompareTo(TrigFunction other) => base.CompareTo(other);
@@ -44,36 +44,23 @@ namespace Crunch
                 if (!skip)
                 {
                     o = Format.Simplify(tf.Operands[0]);
-                    //o = tf.Operands[0].Simplify(Format);
                 }
 
                 if (skip || o.IsConstant(out constant))
                 {
-                    if (!tf.IsInverse && Units == Trigonometry.Degrees)
-                    {
-                        constant *= System.Math.PI / 180;
-                    }
+                    double temp = System.Math.Round(tf.Operation(constant, Units), 14);
 
-                    double temp = System.Math.Round(tf.IsInverse ? tf.Inverse(constant) : tf.Regular(constant), 14);
                     ValidateAnswer(temp);
-                    
-                    if (tf.IsInverse && Units == Trigonometry.Degrees)
-                    {
-                        temp *= 180 / System.Math.PI;
-                    }
-
                     HasTrig = true;
                     return temp;
                 }
                 else
                 {
-                    return new Term(new TrigFunction(tf.Name, o, tf.Regular, tf.Inverse));
+                    return new Term(new TrigFunction(tf.Name, o, tf.Operation));
                 }
             }
         }
     }
-
-    //internal delegate T FunctionWithVariableParamterCount<T>(params T[] operands);
 
     internal class Function : IComparable<Function>
     {
