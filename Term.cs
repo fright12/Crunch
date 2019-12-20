@@ -692,7 +692,7 @@ namespace Crunch
                     }
 
                     //If we can't get rid of the power of 10 or the coefficient is too small to be rounded, make sure we have correctly formatted scientific notation
-                    if ((scientificNotation && !d.IsInt() && places != 0) || (System.Math.Abs(d) < 0.1))
+                    if ((scientificNotation && !d.IsInt() && places != 0) || (System.Math.Abs(d) < 0.00001))
                     {
                         d /= System.Math.Pow(10, places);
                         multiply(TEN, places * (i * -2 + 1));

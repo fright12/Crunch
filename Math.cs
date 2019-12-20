@@ -8,65 +8,84 @@ using Parse;
 
 namespace Crunch
 {
-    using Operator = Operator<Operand>;
-    using Value = Tuple<Operator<Operand>, int>;
+    using Operator = Operator<Token>;
+    using Operation = KeyValuePair<string, Operator<Token>>;
 
     public static partial class Math
     {
-#if DEBUG
+        public static bool IsOpeningToken(this Token token) => token is Token.Separator separator && separator.IsOpening;
+
         private static readonly Operator SUBTRACT = new Reader.BinaryOperator(
             (o1, o2) => o1.Subtract(o2),
             prev: (itr) =>
             {
                 // Get the thing before
                 itr.MovePrev();
-                object previous = itr.Current;
+                Token previous = itr.Current;
                 itr.MoveNext();
 
                 // Add a 0 before if the thing before is not something we can operate on
                 // If it's null or not an operand, then we can't operate on it, UNLESS
                 //  it's a closing parenthesis (because we can parse that to get an operand)
-                if (previous == null || (MathReader.Classify(previous) != Member.Operand && MathReader.Classify(previous) != Member.Closing))
+                //Member member = previous?.Class ?? ;
+                if (previous == null || (!(previous is Token.Operand) && previous.IsOpeningToken()))
+                //(member != Member.Operand && member != Member.Closing))
                 {
-                    itr.Add(-1, new Operand(0));
+                    itr.Add(-1, new Token.Operand<Operand>(new Operand(0)));
                 }
 
                 Reader.BinaryOperator.Prev(itr);
             },
             juxtapose: true);
 
-        internal static readonly Reader MathReader = new Reader(
+        /*internal static readonly Reader MathReader = new Reader(
             new System.Extensions.Trie<Tuple<Operator<Operand>, int>>
             {
                 { "sin", new Value(Reader.Trig("sin", System.Math.Sin, System.Math.Asin), 0) },
-                //{ "sin^(-1)", Function("sin^-1", 1, (o) => System.Math.Asin(o[0])) },
-                //{ "sin^-1", Function.MachineInstructions("sin^-1", 1, (o) => System.Math.Asin(o[0])).Value },
+
                 { "cos", new Value(Reader.Trig("cos", System.Math.Cos, System.Math.Acos), 0) },
                 { "tan", new Value(Reader.Trig("tan", System.Math.Tan, System.Math.Atan), 0) },
                 { "log_", new Value(Function("log_", 2, (o) => System.Math.Log(o[1], o[0])), 0) },
                 { "log", new Value(Function("log", 1, (o) => System.Math.Log(o[0], ImplicitLogarithmBase)), 0) },
                 { "ln", new Value(Function("ln", 1, (o) => System.Math.Log(o[0], System.Math.E)), 0) },
                 { "sqrt", new Value(Function("sqrt", 1, (o) => System.Math.Pow(o[0], 0.5)), 0) },
-            /*},
-            new Dictionary<string, Operator>
-            {*/
                 { "^", new Value(new Reader.BinaryOperator((o1, o2) => o1.Exponentiate(o2)) { Order = ProcessingOrder.RightToLeft }, 1) },
-            /*},
-            new Dictionary<string, Operator>
-            {*/
                 { "/", new Value(new Reader.BinaryOperator((o1, o2) => o1.Divide(o2)), 2) },
                 { "*", new Value(new Reader.BinaryOperator((o1, o2) => o1.Multiply(o2)), 2) },
-            /*},
-            new Dictionary<string, Operator>
-            {*/
                 { "-", new Value(SUBTRACT, 3) },
                 { "+", new Value(new Reader.BinaryOperator((o1, o2) => o1.Add(o2), juxtapose: true), 3) }
             }
-            );
+            );*/
 
-        public static Operator<Operand> Function(string name, int parameterCount, Func<double[], double> operation)
+        internal static readonly Reader MathReader = new Reader(
+            new Operation[]
+            {
+                new Operation("sin", Reader.Trig("sin", System.Math.Sin, System.Math.Asin)),
+                new Operation("cos", Reader.Trig("cos", System.Math.Cos, System.Math.Acos)),
+                new Operation("tan", Reader.Trig("tan", System.Math.Tan, System.Math.Atan)),
+                new Operation("log_", Function("log_", 2, (o) => System.Math.Log(o[1], o[0]))),
+                new Operation("log", Function("log", 1, (o) => System.Math.Log(o[0], ImplicitLogarithmBase))),
+                new Operation("ln", Function("ln", 1, (o) => System.Math.Log(o[0], System.Math.E))),
+                new Operation("sqrt", Function("sqrt", 1, (o) => System.Math.Pow(o[0], 0.5))),
+            },
+            new Operation[]
+            {
+                new Operation("^", new Reader.BinaryOperator((o1, o2) => o1.Exponentiate(o2)) { Order = ProcessingOrder.RightToLeft }),
+            },
+            new Operation[]
+            {
+                new Operation("/", new Reader.BinaryOperator((o1, o2) => o1.Divide(o2))),
+                new Operation("*", new Reader.BinaryOperator((o1, o2) => o1.Multiply(o2)))
+            },
+            new Operation[]
+            {
+                new Operation("-", SUBTRACT),
+                new Operation("+", new Reader.BinaryOperator((o1, o2) => o1.Add(o2), juxtapose: true))
+            });
+
+        public static Operator<Token> Function(string name, int parameterCount, Func<double[], double> operation)
         {
-            Action<IEditEnumerator<object>>[] targets = new Action<IEditEnumerator<object>>[parameterCount];
+            Action<IEditEnumerator<Token>>[] targets = new Action<IEditEnumerator<Token>>[parameterCount];
 
             for (int i = 0; i < parameterCount; i++)
             {
@@ -80,30 +99,19 @@ namespace Crunch
                 };
             }
 
-            return new Operator<Operand>((o) => new Operand(new Term(new Function(name, operation, o))), ProcessingOrder.RightToLeft, targets);
+            return new Operator<Token>((o) =>
+            {
+                Operand[] operands = new Operand[o.Length];
+                for(int i = 0; i < o.Length; i++)
+                {
+                    operands[i] = (Operand)o[i].Value;
+                }
+                return new Token.Operand<Operand>(new Operand(new Term(new Function(name, operation, operands))));
+            }, ProcessingOrder.RightToLeft, targets);
+            //return new Operator<Operand>((o) => new Operand(new Term(new Function(name, operation, o))), ProcessingOrder.RightToLeft, targets);
         }
-#endif
 
-        public static Operand Evaluate(string str)
-        {
-            Print.Log("evaluating " + str);
-#if DEBUG
-            //return MathReader.Parse(str);
-#endif
-            try
-            {
-#if DEBUG
-                return MathReader.Parse(str);
-#else
-                return Reader.Evaluate(str);
-#endif
-            }
-            catch (Exception e)
-            {
-                Print.Log("error evaluating", e.Message);
-                return null;
-            }
-        }
+        public static Operand Evaluate(string str) => (Operand)MathReader.Parse(str).Value;
     }
 
     public static partial class Math

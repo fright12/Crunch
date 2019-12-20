@@ -26,7 +26,7 @@ namespace Crunch
     }
 
     public enum Polynomials { Factored, Expanded }
-    public enum Numbers { Exact, Decimal }
+    public enum Numbers { Decimal, Exact }
     public enum Trigonometry { Degrees, Radians }
 
     public enum Triple { Unchecked, Yes, No }

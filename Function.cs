@@ -95,40 +95,6 @@ namespace Crunch
             }
         }
 
-#if !DEBUG
-        public static KeyValuePair<string, Machine.Operator> MachineInstructions(string name, int parameterCount, Func<double[], double> operation)
-        {
-            Func<LinkedListNode<object>, LinkedListNode<object>>[] targets = new Func<LinkedListNode<object>, LinkedListNode<object>>[parameterCount];
-
-            for (int i = 0; i<parameterCount; i++)
-            {
-                int j = i + 1;
-        targets[i] = (n) =>
-                {
-                    for (int k = 0; k<j; k++)
-                    {
-                        n = n.Next;
-                    }
-                    return n;
-                };
-            }
-
-            return new KeyValuePair<string, Machine.Operator>(name, new Machine.Operator((o) => new Operand(new Term(new Function(name, operation, ParseOperands(o)))), targets));
-        }
-        
-        private static Operand[] ParseOperands(object[] list)
-        {
-            Operand[] ans = new Operand[list.Length];
-
-            for (int i = 0; i < list.Length; i++)
-            {
-                ans[i] = Reader.ParseOperand(list[i]);
-            }
-
-            return ans;
-        }
-#endif
-
         public override string ToString()
         {
             string ans = Name;

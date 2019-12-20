@@ -4,224 +4,39 @@ using System.Collections.Generic;
 using System.Text;
 
 using System.Extensions;
-#if DEBUG
 using Parse;
-#else
-using Crunch.Machine;
-#endif
 
-#if !DEBUG
 namespace Crunch
 {
-    public class Reader : Machine.Reader
+    using Operator = Operator<Token>;
+
+    public class Reader
     {
-        private static Func<LinkedListNode<object>, LinkedListNode<object>> NextOperand = (node) =>
+        public readonly Parse.Reader Parser;
+        public Trie<Tuple<Operator<Token>, int>> Operations;
+
+        public Reader(params KeyValuePair<string, Operator<Token>>[][] operations)
         {
-            //Next node is a minus sign
-            if (node.Next != null && node.Next.Value == subtract)
+            Operations = new Trie<Tuple<Operator<Token>, int>>();
+            for (int i = 0; i < operations.Length; i++)
             {
-                //Delete the negative sign
-                node.List.Remove(node.Next);
-
-                //Negate what's after
-                node.Next.Value = negator(node.Next.Value);
-            }
-
-            return node.Next;
-        };
-
-        private static Func<LinkedListNode<object>, LinkedListNode<object>> PreviousOrZero = (node) =>
-        {
-            if (node.Previous == null)
-            {
-                node.List.AddBefore(node, 0);
-            }
-
-            return node.Previous;
-        };
-
-        //internal static Reader Instance => instance ?? (instance = new Reader());
-        //private static Reader instance;
-
-        //protected override Trie<Operator> Operations => operations;
-        //private Trie<Operator> operations;
-
-        private static Func<object, object> negator = (o) => //Operand.Multiply(o.ParseOperand(), -1);
-        {
-            Operand temp = ParseOperand(o);
-            temp.Multiply(-1);
-            return temp;
-        };
-        //private static Operator exponentiate = BinaryOperator(Operand.Exponentiate);
-        private static Operator exponentiate = BinaryOperator((o1, o2) => o1.Exponentiate(o2));
-        private static Operator subtract = new Operator((o) =>
-        {
-            Operand ans = ParseOperand(o[0]);
-            ans.Subtract(ParseOperand(o[1]));
-            return ans;
-        }, PreviousOrZero, NextOperand);
-
-        public Reader(params KeyValuePair<string, Operator>[][] data) : base(data) { }
-        private static Reader Instance;
-
-        static Reader()
-        {
-            Instance = new Reader(
-                new KeyValuePair<string, Operator>[]
+                foreach (KeyValuePair<string, Operator<Token>> kvp in operations[i])
                 {
-                    new KeyValuePair<string, Operator>("sin", Trig("sin", System.Math.Sin, System.Math.Asin)),
-                    new KeyValuePair<string, Operator>("cos", Trig("cos", System.Math.Cos, System.Math.Acos)),
-                    new KeyValuePair<string, Operator>("tan", Trig("tan", System.Math.Tan, System.Math.Atan)),
-                    Function.MachineInstructions("log_", 2, (o) => System.Math.Log(o[1], o[0])),
-                    Function.MachineInstructions("log", 1, (o) => System.Math.Log(o[0], Math.ImplicitLogarithmBase)),
-                    Function.MachineInstructions("ln", 1, (o) => System.Math.Log(o[0], System.Math.E)),
-                    Function.MachineInstructions("sqrt", 1, (o) => System.Math.Pow(o[0], 0.5))
-                },
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("^", exponentiate)
-                },
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("/", BinaryOperator((o1, o2) => o1.Divide(o2))),
-                    new KeyValuePair<string, Operator>("*", BinaryOperator((o1, o2) => o1.Multiply(o2)))
-                },
-                new KeyValuePair<string, Operator>[]
-                {
-                    new KeyValuePair<string, Operator>("-", subtract),
-                    new KeyValuePair<string, Operator>("+", BinaryOperator((o1, o2) => o1.Add(o2)))
+                    Operations.Add(kvp.Key, new Tuple<Operator<Token>, int>(kvp.Value, i));
                 }
-                );
+            }
+            
+            Parser = new Parse.Reader(Juxtapose);
         }
 
-        private static bool isInverse;
-
-        private static Operator Trig(string name, Func<double, double> normal, Func<double, double> inverse)
+        public Token Parse(string input)
         {
-            Func<LinkedListNode<object>, LinkedListNode<object>> next = (node) =>
-            {
-                isInverse = false;
-
-                if (node.Next.Value == exponentiate)
-                {
-                    Operand e = ParseOperand(node.Next.Next.Value);
-
-                    if (e != null && e.IsConstant(-1))
-                    //if ((node + 2).IsEqualTo("-") && (node + 3).IsEqualTo("1"))
-                    {
-                        node.Next.Next.Value = 1;
-
-                        isInverse = true;
-                    }
-
-                    return node.Next.Next.Next;
-                }
-                else
-                {
-                    return node.Next;
-                }
-            };
-
-            return new Operator(
-                (o) =>
-                {
-                    //Expression e = o[0].ParseOperand();
-                    //double d;
-                    //return e.IsConstant(out d) ? new Term(f(d)) : new Term(new Function(name, e, null));
-
-                    Func<Trigonometry, double, double> temp = (trig, d) => normal(trig == Trigonometry.Degrees ? d * System.Math.PI / 180 : d);
-
-                    if (isInverse)
-                    {
-                        temp = (trig, d) =>
-                        {
-                            double value = inverse(d);
-                            if (double.IsNaN(value))
-                            {
-
-                            }
-                            return value * (trig == Trigonometry.Degrees ? 180 / System.Math.PI : 1);
-                        };
-                    }
-
-                    return new TrigFunction(name + (isInverse ? "^-1" : ""), ParseOperand(o[0]), temp);
-                },
-                next);
+            Lexer<Operand> lexer = new Lexer<Operand>(Operations, Tokenize);
+            IEnumerable<Token> tokenStream = lexer.TokenStream(input);
+            return Parser.Parse(tokenStream);
         }
 
-        private static Operator BinaryOperator(Action<Operand, Operand> operation) => new BinaryOperator((o1, o2) =>
-        {
-            Operand ans = ParseOperand(o1);
-            operation(ans, ParseOperand(o2));
-            return ans;
-        }, (node) => node.Previous, NextOperand);
-
-        public static Operand Evaluate(string str)
-        {
-            Print.Log("evaluating " + str);
-            try
-            {
-                return ParseOperand(Instance.Parse(str));
-            }
-            catch (Exception e)
-            {
-                Print.Log("error evaluating", e.Message);
-                return null;
-            }
-        }
-
-        internal static Operand ParseOperand(object str)
-        {
-            while (str is LinkedList<object>)
-            {
-                str = (str as LinkedList<object>).First?.Value;
-            }
-
-            if (str == null)
-            {
-                throw new Exception("Incorrectly formatted math");
-            }
-            if (str is Operand || str is Expression || str is Term)
-            {
-                return str as dynamic;
-            }
-            if (str is Function)
-            {
-                return new Term(str as Function);
-            }
-
-            string s = str.ToString();
-
-            if (s.Substring(0, 1).IsNumber())
-            {
-                return new Term(s);
-            }
-            else
-            {
-                if (s.Length > 1 || str is Operator) // Instance.Operations.Contains(s).ToBool())
-                {
-                    throw new Exception("Cannot operate on value " + str + " of type " + str.GetType());
-                }
-
-                return new Term(s[0]);
-            }
-        }
-    }
-}
-#endif
-
-#if DEBUG
-namespace Crunch
-{
-    using Operator = Operator<Operand>;
-
-    public class Reader : CharReader<Operand>
-    {
-        public Reader(Trie<Tuple<Operator, int>> operations) : base(operations) { }
-
-        protected override Operand ParseOperand(string operand) => Term.Parse(operand);
-
-        protected override IEnumerable<string> Segment(IEnumerable<char> operand)
+        protected IEnumerable<Token.Operand<Operand>> Tokenize(IEnumerable<char> operand)
         {
             IEnumerator<char> itr = operand.GetEnumerator();
             string number = "";
@@ -236,33 +51,33 @@ namespace Crunch
                 {
                     if (number.Length > 0)
                     {
-                        yield return number;
+                        yield return new Token.Operand<Operand>(new Operand(Term.Parse(number)));
                         number = "";
                     }
 
-                    yield return itr.Current.ToString();
+                    yield return new Token.Operand<Operand>(new Operand(Term.Parse(itr.Current.ToString())));
                 }
             }
             
             if (number.Length > 0)
             {
-                yield return number;
+                yield return new Token.Operand<Operand>(new Operand(Term.Parse(number)));
             }
         }
 
-        protected override Operand Juxtapose(IEnumerable<Operand> expression)
+        protected Token Juxtapose(IEnumerable<Token> expression)
         {
             Operand ans = 1;
 
-            foreach (Operand o in expression)
+            foreach (Token t in expression)
             {
-                ans.Multiply(o);
+                ans.Multiply((Operand)t.Value);
             }
 
-            return ans;
+            return new Token.Operand<Operand>(ans);
         }
 
-        private static bool Sequence(IEnumerator<object> itr, params Func<object, bool>[] comparers)
+        private static bool Sequence(IEnumerator<Token> itr, params Func<Token, bool>[] comparers)
         {
             int i = 0;
             while (i < comparers.Length && itr.MoveNext())
@@ -276,31 +91,33 @@ namespace Crunch
             return true;
         }
 
+        private static bool IsString(Token o, string target) => o.Value.ToString().Equals(target);
+
         public static Operator Trig(string name, Func<double, double> normal, Func<double, double> inverse)
         {
-            UnaryOperator<Operand> trig = new UnaryOperator<Operand>(null, null);
+            UnaryOperator<Token> trig = new UnaryOperator<Token>(null, null);
 
-            Action<IEditEnumerator<object>> next = (itr) =>
+            Action<IEditEnumerator<Token>> next = (itr) =>
             {
-                trig.Operate = (o) => new Term(new TrigFunction(name, o[0], (d, units) => normal(d * (units == Trigonometry.Degrees ? System.Math.PI / 180 : 1))));
+                trig.OperateFunc = (o) => new Token.Operand<Operand>(new Operand(new Term(new TrigFunction(name, (Operand)o[0].Value, (d, units) => normal(d * (units == Trigonometry.Degrees ? System.Math.PI / 180 : 1))))));
 
-                if (itr.MoveNext() && itr.Current.Equals("^"))
+                if (itr.MoveNext() && IsString(itr.Current, "^"))
                 {
                     int remove = 0;
 
-                    if (Sequence(itr.Copy(), (o) => o.Equals("-"), (o) => o.Equals("1"), (o) => Math.MathReader.Classify(o) == Member.Opening))
+                    if (Sequence(itr.Copy(), (o) => IsString(o, "-"), (o) => IsString(o, "1"), (o) => o.IsOpeningToken()))
                     {
                         remove = 3;
                     }
-                    else if (Sequence(itr.Copy(), (o) => Math.MathReader.Classify(o) == Member.Opening, (o) => o.Equals("-"), (o) => o.Equals("1"), (o) => Math.MathReader.Classify(o) == Member.Closing))
+                    else if (Sequence(itr.Copy(), (o) => o.IsOpeningToken(), (o) => IsString(o, "-"), (o) => IsString(o, "1"), (o) => !o.IsOpeningToken()))
                     {
                         remove = 5;
                     }
-
+                    
                     if (remove == 0)
                     {
                         itr.MoveNext();
-                        itr.Add(0, Math.MathReader.ParseOperand(itr));
+                        itr.Add(0, Math.MathReader.Parser.ParseOperand(itr));
                         itr.MoveNext();
                     }
                     else
@@ -310,29 +127,30 @@ namespace Crunch
                         {
                             itr.Remove(-1);
                         }
-
-                        trig.Operate = (o) => new Term(new TrigFunction("arc" + name, o[0], (d, units) => inverse(d) * (units == Trigonometry.Degrees ? 180 / System.Math.PI : 1)));
+                        
+                        trig.OperateFunc = (o) => new Token.Operand<Operand>(new Operand(new Term(new TrigFunction("arc" + name, (Operand)o[0].Value, (d, units) => inverse(d) * (units == Trigonometry.Degrees ? 180 / System.Math.PI : 1)))));
                     }
                 }
             };
 
-            trig.Targets = new Action<IEditEnumerator<object>>[] { next };
+            trig.Targets = new Action<IEditEnumerator<Token>>[] { next };
             return trig;
         }
 
-        public class BinaryOperator : BinaryOperator<Operand>
+        public class BinaryOperator : BinaryOperator<Token>
         {
-            public BinaryOperator(Action<Operand, Operand> operation, Action<IEditEnumerator<object>> prev = null, Action<IEditEnumerator<object>> next = null, bool juxtapose = false) : base(
+            public BinaryOperator(Action<Operand, Operand> operation, Action<IEditEnumerator<Token>> prev = null, Action<IEditEnumerator<Token>> next = null, bool juxtapose = false) : base(
                 (o1, o2) =>
                 {
-                    operation(o1, o2);
-                    return o1;
+                    var _o1 = (Operand)o1.Value;
+                    operation(_o1, (Operand)o2.Value);
+                    return new Token.Operand<Operand>(_o1);
                 },
                 (itr) => Move(prev ?? Prev, itr, juxtapose ? -1 : 0),
                 (itr) => Move(next ?? Next, itr, juxtapose ? 1 : 0))
             { }
 
-            private static void Move(Action<IEditEnumerator<object>> mover, IEditEnumerator<object> itr, int juxtapose)
+            private static void Move(Action<IEditEnumerator<Token>> mover, IEditEnumerator<Token> itr, int juxtapose)
             {
                 mover(itr);
 
@@ -341,18 +159,18 @@ namespace Crunch
                     // itr is pointing at the thing we ultimately want to return - we need to move off it to make sure it's juxtaposed too
                     itr.Move(-juxtapose);
                     // Juxtapose will delete the thing we were just on - add the result where it was
-                    itr.Add(-juxtapose, Math.MathReader.Juxtapose(Math.MathReader.CollectOperands(itr, (ProcessingOrder)juxtapose)));
+                    itr.Add(-juxtapose, Math.MathReader.Juxtapose(Math.MathReader.Parser.CollectOperands(itr, (ProcessingOrder)juxtapose)));
                     // Move back to where we were (which is now the juxtaposed value)
                     itr.Move(-juxtapose);
                 }
             }
 
-            public static void Prev(IEditEnumerator<object> itr) => itr.MovePrev();
+            public static void Prev(IEditEnumerator itr) => itr.MovePrev();
 
-            public static void Next(IEditEnumerator<object> itr)
+            public static void Next(IEditEnumerator<Token> itr)
             {
                 // Is the next thing a minus sign?
-                if (itr.MoveNext() && itr.Current.Equals("-"))
+                if (itr.MoveNext() && IsString(itr.Current, "-"))
                 {
                     // Move off the negative sign (to the thing after)
                     itr.MoveNext();
@@ -360,13 +178,12 @@ namespace Crunch
                     itr.Remove(-1);
 
                     // Negate the value after
-                    Operand next = Math.MathReader.ParseOperand(itr);
+                    Operand next = (Operand)Math.MathReader.Parser.ParseOperand(itr).Value;
                     next.Multiply(-1);
                     // Replace with the negated value
-                    itr.Add(0, next);
+                    itr.Add(0, new Token.Operand<Operand>(next));
                 }
             }
         }
     }
 }
-#endif

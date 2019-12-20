@@ -16,7 +16,6 @@ C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Debug\System.Extensions.dll
 C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Debug\System.Extensions.pdb
 C:\Users\Flint\Documents\Calculator Stuff\Crunch\bin\Debug\Crunch.Machine.pdb
 C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Debug\Crunch.csprojAssemblyReference.cache
-C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Debug\Crunch.csproj.CoreCompileInputs.cache
 C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Debug\Crunch.csproj.CopyComplete
 C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Debug\Crunch.dll
 C:\Users\Flint\Documents\Calculator Stuff\Crunch\obj\Debug\Crunch.pdb
